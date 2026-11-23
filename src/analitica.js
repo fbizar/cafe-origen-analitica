@@ -9,6 +9,12 @@ const normalizar = (texto) =>
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
+/** 
+##################################
+     Funciones con ciclos
+################################## 
+**/
+
 // Devuelve el registro completo, no solo el valor
 function ventaMayor(ventas) {
     let registroMayor = null;
@@ -41,7 +47,7 @@ function unidadesVendidas(ventas) {
     let totalUnidades = 0;
     for (const venta of ventas) {
         if (venta.cantidad <= 0) continue;
-        
+
         totalUnidades += venta.cantidad;
     }
     return totalUnidades;
@@ -63,7 +69,7 @@ function ticketPromedio(ventas) {
 
 // Ignora mayúsculas y espacios sobrantes
 function ventasPorCiudad(ventas, ciudad) {
-    let ciudadBuscada = normalizar(ciudad);
+    const ciudadBuscada = normalizar(ciudad);
     let total = 0
     for (const venta of ventas) {
 
@@ -77,8 +83,84 @@ function ventasPorCiudad(ventas, ciudad) {
     return total
 }
 
-console.log(ventaMayor(ventas));
-console.log("Total ventas: $", totalVendido(ventas))
-console.log("Unidades vendidas:", unidadesVendidas(ventas))
-console.log("Ticket promedio:", ticketPromedio(ventas))
-console.log("Ventas en Medellín: $", ventasPorCiudad(ventas, "medellín"))
+/** 
+##################################
+     Funciones con métodos de Array
+################################## 
+**/
+
+function totalVendidoM(ventas) {
+    return ventas
+        .filter((venta) => venta.cantidad > 0)
+        .reduce((total, venta) => total + valorVenta(venta), 0);
+}
+
+function unidadesVendidasM(ventas) {
+    return ventas
+        .filter((venta) => venta.cantidad > 0)
+        .reduce((total, venta) => total + venta.cantidad, 0);
+}
+
+function ventasPorCiudadM(ventas, ciudad) {
+    const ciudadBuscada = normalizar(ciudad);
+    return ventas
+        .filter((venta) => (venta.cantidad > 0 && normalizar(venta.ciudad) === ciudadBuscada))
+        .reduce((total, venta) => total + valorVenta(venta), 0);
+}
+
+function totalPorCiudad(ventas) {
+    return ventas
+        .filter((venta) => venta.cantidad > 0)
+        .reduce((totales, venta) => {
+            const ciudad = normalizar(venta.ciudad);
+            totales[ciudad] = (totales[ciudad] ?? 0) + valorVenta(venta);
+            return totales;
+        }, {});
+}
+
+function unidadesPorProducto(ventas) {
+    return ventas
+        .filter((venta) => venta.cantidad > 0)
+        .reduce((unidades, venta) => {
+            unidades[venta.producto] = (unidades[venta.producto] ?? 0) + venta.cantidad;
+            return unidades;
+        }, {});
+}
+
+function topProductosPorValor(ventas, k) {
+
+    const topProductos = ventas
+        .reduce((valores, venta) => {
+            if (venta.cantidad > 0){
+                valores[venta.producto] = (valores[venta.producto] ?? 0) + valorVenta(venta);
+            }
+            return valores;
+        }, {});
+
+
+    return Object.entries(topProductos).map(([producto, total]) => ({ producto, total }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, k);
+}
+
+
+module.exports = {
+    totalVendido,
+    unidadesVendidas,
+    ventasPorCiudad,
+    totalVendidoM,
+    unidadesVendidasM,
+    ventasPorCiudadM,
+    totalPorCiudad,
+    unidadesPorProducto,
+    topProductosPorValor
+};
+
+// console.table(totalPorCiudad([]));
+// console.table(unidadesPorProducto(ventas));
+// console.table(topProductosPorValor(ventas, 5));
+// console.log(ventaMayor(ventas));
+// console.log("Total ventas: $", totalVendido(ventas))
+// console.log("Unidades vendidas:", unidadesVendidas(ventas))
+// console.log("Ticket promedio:", ticketPromedio(ventas))
+// console.log("Ventas en Medellín: $", ventasPorCiudad(ventas, "medellín"))

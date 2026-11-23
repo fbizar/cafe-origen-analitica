@@ -1,6 +1,6 @@
 # Bitácora
 
-## Microreto 1 - Primer tueste: el repositorio y los datos
+## Minireto 1 - Primer tueste: el repositorio y los datos
 ### 1.1 Diccionario de datos
 1. `id` - Entero (Number) - Identificador único del dato.
 2. `fecha` - Fecha (String) - Fecha del registro.
@@ -18,7 +18,7 @@
 | Entre las ciudades hay un medellín en minúsculas     | Normalizar todos las ciudades en minúsculas y quitar espacios para consistencia. |
 | Los clientes C01, C02 y C03 tienes más de 1 registro | No hacer nada, es válido; corresponde a una venta diferente                      |
 
-## Microreto 2 - Los números del día: recorrer, filtrar y acumular
+## Minireto 2 - Los números del día: recorrer, filtrar y acumular
 ### 2.1 Indicadores
 
 **1. Cuánto se vendió en total**: Multiplica precio con la cantidad de cada venta y lo acumula.
@@ -266,3 +266,15 @@ Salida del programa:
 | `ventasPorCiudad(…, "Medellín")` | 177000 | 177000 | Sí |
 
 Conclusión: los cinco resultados calculados a mano con las tablas de traza coinciden con los del programa. Esto confirma que la venta `id: 8` (cantidad 0) se descarta en todas las funciones, y que `normalizar` reconoce `"Medellín "` y `"medellín"` como la misma ciudad que `"Medellín"`.
+
+## Minireto 3: Del ciclo al método: rankings y agrupaciones
+### 3.1 Preguntas de la sesión que responde cada función
+
+| Función | ¿Qué recorro? | ¿Qué filtro? | ¿Qué transformo? | ¿Qué acumulo? | ¿Cómo agrupo? |
+|---|---|---|---|---|---|
+| `totalVendidoM` | Todas las ventas | Descarto `cantidad <= 0` | Cada venta en su valor (`cantidad * precio`) | La suma de los valores | No agrupo |
+| `unidadesVendidasM` | Todas las ventas | Descarto `cantidad <= 0` | Nada: uso `cantidad` directamente | La suma de las cantidades | No agrupo |
+| `ventasPorCiudadM` | Todas las ventas | Descarto `cantidad <= 0` y las ventas de otra ciudad | La ciudad a texto normalizado para comparar; cada venta en su valor | La suma de los valores de esa ciudad | No agrupo: busco una sola ciudad |
+| `totalPorCiudad` | Todas las ventas | Descarto `cantidad <= 0` | La ciudad a texto normalizado (será la clave); cada venta en su valor | El total de cada ciudad | Objeto con clave = ciudad normalizada |
+| `unidadesPorProducto` | Todas las ventas | Descarto `cantidad <= 0` | Nada: la clave es el producto y se suma `cantidad` | Las unidades de cada producto | Objeto con clave = producto |
+| `topProductosPorValor` | Todas las ventas | Descarto `cantidad <= 0` | Cada venta en su valor; luego cada pareja `[producto, total]` en `{ producto, total }` | El total de dinero de cada producto | Objeto con clave = producto; después ordeno (sobre una copia) y corto con `slice(0, k)` |
