@@ -143,17 +143,31 @@ function topProductosPorValor(ventas, k) {
         .slice(0, k);
 }
 
+function ventasDelDia(ventas, fecha) {
+    if (!Array.isArray(ventas)) return [];
+
+    const fechaBuscada = String(fecha ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaBuscada)) {
+        throw new Error(`Formato de fecha inválido: "${fecha}". Usa AAAA-MM-DD.`);
+    }
+
+    return ventas.filter((venta) => String(venta.fecha ?? "").trim() === fechaBuscada);
+}
+
 
 module.exports = {
+    ventaMayor,
     totalVendido,
     unidadesVendidas,
     ventasPorCiudad,
+    ticketPromedio,
     totalVendidoM,
     unidadesVendidasM,
     ventasPorCiudadM,
     totalPorCiudad,
     unidadesPorProducto,
-    topProductosPorValor
+    topProductosPorValor,
+    ventasDelDia
 };
 
 // console.table(totalPorCiudad([]));

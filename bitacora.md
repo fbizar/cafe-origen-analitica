@@ -278,3 +278,92 @@ Conclusión: los cinco resultados calculados a mano con las tablas de traza coin
 | `totalPorCiudad` | Todas las ventas | Descarto `cantidad <= 0` | La ciudad a texto normalizado (será la clave); cada venta en su valor | El total de cada ciudad | Objeto con clave = ciudad normalizada |
 | `unidadesPorProducto` | Todas las ventas | Descarto `cantidad <= 0` | Nada: la clave es el producto y se suma `cantidad` | Las unidades de cada producto | Objeto con clave = producto |
 | `topProductosPorValor` | Todas las ventas | Descarto `cantidad <= 0` | Cada venta en su valor; luego cada pareja `[producto, total]` en `{ producto, total }` | El total de dinero de cada producto | Objeto con clave = producto; después ordeno (sobre una copia) y corto con `slice(0, k)` |
+
+## Minireto 4: Analítica v0.1: el primer reporte
+### Errores reportados por la gerente: reproducción y corrección
+
+Se simuló la versión preliminar quitando las correcciones y se comparó con la v0.1 usando las mismas entradas.
+
+```javascript
+// Versión preliminar (simulada): sin normalizar y sin protección contra 0/0
+function totalPorCiudadPreliminar(ventas) {
+    const totales = {};
+    for (const venta of ventas) {
+        if (venta.cantidad <= 0) continue;
+        totales[venta.ciudad] = (totales[venta.ciudad] ?? 0) + valorVenta(venta);
+    }
+    return totales;
+}
+
+function ticketPromedioPreliminar(ventas) {
+    let validas = 0;
+    let total = 0;
+    for (const venta of ventas) {
+        if (venta.cantidad > 0) {
+            total += valorVenta(venta);
+            validas++;
+        }
+    }
+    return total / validas;
+}
+```
+
+#### Error 1: "Bogotá aparecía dos veces"
+
+| Campo | Detalle |
+|---|---|
+| **Síntoma** | En el reporte por ciudad, la misma ciudad aparece en dos filas, cada una con un total parcial. |
+| **Entrada que lo produce** | Ventas de la misma ciudad escritas distinto: `"Bogotá"` y `"Bogotá "` (espacio final). En `ventas` ocurre con Medellín: `"Medellín"`, `"Medellín "` y `"medellín"`. |
+| **Hipótesis** | Las claves del objeto se crean con `venta.ciudad` tal cual, y JavaScript trata `"Bogotá"` y `"Bogotá "` como claves distintas. |
+| **Prueba realizada** | Ver el código siguiente. |
+| **Causa** | Falta normalizar el nombre de la ciudad (`trim`, minúsculas, sin tildes) antes de usarlo como clave. |
+| **Corrección** | `totalPorCiudad` usa `normalizar(venta.ciudad)` como clave. Todas las variantes caen en el mismo grupo. |
+
+```javascript
+const bogota = [
+    { id: 1, ciudad: "Bogotá",  cantidad: 1, precio: 26000 },
+    { id: 2, ciudad: "Bogotá ", cantidad: 2, precio: 26000 },
+];
+
+console.log(totalPorCiudadPreliminar(bogota));
+// { 'Bogotá': 26000, 'Bogotá ': 52000 }   -> Bogotá dos veces (error reproducido)
+
+console.log(totalPorCiudad(bogota));
+// { bogota: 78000 }                       -> un solo grupo
+
+console.log(Object.keys(totalPorCiudadPreliminar(ventas)).length); // 6
+console.log(Object.keys(totalPorCiudad(ventas)).length);           // 4
+```
+
+**Demostración de que v0.1 ya no lo presenta:** con las 12 ventas, la versión preliminar genera 6 claves, de las cuales tres son Medellín. La v0.1 genera 4 (`medellin`, `bogota`, `cali`, `pereira`) y su suma es 985000, igual que `totalVendido`. Medellín queda en 356000 (en la preliminar estaba partido en 179000 + 42000 + 135000).
+
+#### Error 2: "El ticket promedio daba NaN al filtrar un día sin ventas"
+
+| Campo | Detalle |
+|---|---|
+| **Síntoma** | Al filtrar un día sin ventas, el ticket promedio muestra `NaN`. |
+| **Entrada que lo produce** | `ticketPromedio(ventasDelDia(ventas, "2026-09-30"))`. El filtro devuelve `[]`, así que `total = 0` y `validas = 0`. Pasa igual si el arreglo solo tiene ventas con cantidad 0 (por ejemplo `[ventas[7]]`). |
+| **Hipótesis** | Se divide `0 / 0` cuando no hay ventas válidas. |
+| **Prueba realizada** | Ver el código siguiente. |
+| **Causa** | `0 / 0` es `NaN` en JavaScript. La versión preliminar no comprueba `validas === 0` antes de dividir. Mi versión inicial tampoco lo resolvía bien: la comprobación existía pero devolvía `NaN`, que se propaga y puede llegar a la pantalla. |
+| **Corrección** | `ticketPromedio` devuelve `null` cuando `validas === 0` (no hay dato, no es un promedio de 0). La interfaz que use la gerente debe mostrar un texto como "Sin ventas válidas". |
+
+```javascript
+const diaSinVentas = ventasDelDia(ventas, "2026-09-30"); // []
+
+console.log(ticketPromedioPreliminar(diaSinVentas));  // NaN  (error reproducido)
+console.log(ticketPromedio(diaSinVentas));            // null
+console.log(ticketPromedio([ventas[7]]));             // null (solo una venta con cantidad 0)
+
+console.log(ticketPromedio(ventasDelDia(ventas, "2026-09-01"))); // 55000 (84000 + 26000) / 2
+console.log(ticketPromedio(ventas) ?? "Sin ventas válidas");     // ≈ 89545.45
+```
+
+**Demostración de que v0.1 ya no lo presenta:** `ticketPromedio` devuelve `null` en ambos casos sin datos, nunca `NaN`. Además, con datos válidos el resultado no cambia (el 1 de septiembre sigue dando 55000).
+
+#### Resumen
+
+| Error | Versión preliminar | v0.1 | Prueba |
+|---|---|---|---|
+| Ciudad duplicada | 6 claves (Medellín repetida tres veces) | 4 claves | `Object.keys(...).length` |
+| Ticket promedio de un día sin ventas | `NaN` | `null` | `ticketPromedio(ventasDelDia(ventas, "2026-09-30"))` |
