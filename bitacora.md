@@ -429,3 +429,82 @@ En `totalVendidoC`, `ventaMayorC` y `totalPorCiudadC` hay una condición sobre `
 **Costo de la condición:** es una comparación por elemento, y se hace siempre, incluso en las ventas que se descartan. Por eso aparece en el conteo (es el segundo 1 de cada vuelta) y por eso `totalVendidoC` cuesta 2n y no n. Es un costo constante por elemento, así que no cambia la complejidad: sigue siendo O(n).
 
 `primeraVentaC` no hace esta comprobación porque no recorre el arreglo: devuelve la primera posición tal cual.
+
+## Minireto 6: El reporte se volvió lento
+### Traza de `clientesRecurrentes` con 5 ventas
+
+Conteo por cada comparación que se realiza entre 5 ventas durante la ejecución el método.
+
+| i \ j *(i + 1)* | 0 (venta1) | 1 (venta2) | 2 (venta3) | 3 (venta4) | 4 (venta5) |
+|---|---|---|---|---|---|
+| **0 (venta1)** | - | 1 | 2 | **3** | 4 |
+| **1 (venta2)** | - | - | 5 | 6 | 7 |
+| **2 (venta3)** | - | - | - | 8 | 9 |
+| **3 (venta4)** | - | - | - | - | 10 |
+| **4 (venta5)** | - | - | - | - | - |
+
+- Cada venta hace `n - 1 - i` comparaciones: 4, 3, 2, 1 y 0.
+- **Total:** n(n − 1) / 2 pares = 5 × 4 / 2 = **10** comparaciones `===`. El `includes` se ejecutó una sola vez y examinó 0 elementos, porque `recurrentes` estaba vacío.
+- **Por qué es O(n²):** el total crece como n(n − 1) / 2. Con n = 10 serían 45 pares; con n = 100, 4950. Al multiplicar n por 10, el trabajo se multiplica por casi 100.
+
+### Medición de tiempo: `clientesRecurrentes`
+
+| n | Tiempo | Factor al duplicar n |
+|---|---|---|
+| 1000 | 12.598 ms | - |
+| 2000 | 41.352 ms | × 3.3 |
+| 4000 | 131.636 ms | × 3.2 |
+| 8000 | 651.3 ms | × 4.9 |
+| 16000 | 2817 ms | × 4.3 |
+
+Al duplicar n, el tiempo se multiplica aproximadamente por 4, lo que coincide con la complejidad O(n²) obtenida de la traza: el número de pares crece como n(n − 1) / 2, que se multiplica por 4 al duplicar n. Las variaciones respecto a 4 exacto se atribuyen al ruido de la medición (recolector de basura, JIT, otros procesos) y al costo de `includes`, que depende de los datos.
+
+### Predicción del tiempo con más ventas
+
+Como `clientesRecurrentes` es O(n²), el tiempo crece en proporción a n²:
+
+`tiempo(n_nuevo) ≈ tiempo(n_base) × (n_nuevo / n_base)²`
+
+Con la medición de 16000 ventas (2817 ms) como base, se estima:
+
+| n | Tiempo estimado |
+|---|---|
+| 32000 | ≈ 11 268 ms (≈ 11 s) |
+| 64000 | ≈ 45 072 ms (≈ 45 s) |
+| 100000 | ≈ 110 039 ms (≈ 1 min 50 s) |
+
+La constante `tiempo / n²` es casi igual en todas las mediciones (≈ 1e-5 ms), lo que respalda el modelo cuadrático. La predicción es una estimación: depende de la máquina, de los datos y se vuelve menos fiable cuanto más se extrapola.   
+
+#### Validación de la predicción
+
+| n | Tiempo estimado | Tiempo medido | Diferencia |
+|---|---|---|---|
+| 100000 | ≈ 110 039 ms (≈ 1 min 50 s) | 109 188 ms (1:49.188) | ≈ 0.8 % |
+
+El factor de tiempo entre 16000 y 100000 ventas fue ≈ 38.8, muy cercano al esperado por el modelo cuadrático (6.25² ≈ 39.06). La constante `tiempo / n²` se mantuvo en ≈ 1.1e-5 ms, así que el modelo O(n²) predice correctamente el comportamiento de `clientesRecurrentes` en el rango medido.
+
+### Costo oculto: `recurrentes.includes`
+
+`includes` recorre `recurrentes` elemento por elemento hasta encontrar el valor, así que es un recorrido extra dentro de los dos ciclos anidados.
+
+- **Cuándo se ejecuta:** solo si `ventas[i].cliente === ventas[j].cliente`, por el cortocircuito de `&&`. En los pares con clientes distintos no cuesta nada.
+- **Cuánto cuesta:** entre 0 y `m` comparaciones, donde `m` es el tamaño de `recurrentes` (clientes distintos con al menos dos ventas, m ≤ n/2). No recorre `ventas`.
+- **Mejor caso:** ningún cliente se repite. `includes` nunca se ejecuta y el costo total es O(n²) (solo los pares).
+- **Caso típico (`generarVentas`):** unos 1.5n pares iguales, con `recurrentes` de hasta ≈ n/3 elementos. El `includes` aporta del orden de n² comparaciones, y el total sigue siendo O(n²). Es coherente con las mediciones de tiempo, donde el factor al duplicar n osciló entre 3.2 y 4.9.
+- **Peor caso:** `recurrentes` ya tiene del orden de n elementos y además hay del orden de n² pares con el mismo cliente (por ejemplo, m = n/4 clientes que aparecen dos veces, y después una segunda mitad del arreglo con un único cliente repetido). Cada uno de esos pares ejecuta un `includes` de ≈ n/4 comparaciones, lo que da ≈ n³/32 y, en términos de complejidad, **O(n³)**.
+
+### Conclusión para la gerente: por qué el reporte se vuelve lento
+
+El reporte de clientes que repiten compra es rápido con pocas ventas, pero se vuelve muy lento a medida que el negocio crece. La razón es la forma en que revisa los datos: para saber si un cliente compró más de una vez, compara cada venta con todas las demás. Es como revisar una lista de pedidos tomando el primero y buscándolo en todo el resto, luego el segundo, y así sucesivamente.
+
+Esto significa que el trabajo no crece al mismo ritmo que las ventas, sino mucho más rápido. **Si las ventas se duplican, el reporte tarda cuatro veces más.** Lo comprobamos midiendo:
+
+| Cantidad de ventas | Tiempo del reporte |
+|---|---|
+| 1.000 | menos de 1 segundo (0,01 s) |
+| 16.000 | cerca de 3 segundos |
+| 100.000 | casi 2 minutos |
+
+Con base en ese comportamiento, se puede estimar que con un millón de ventas el reporte tardaría alrededor de 3 horas, lo que lo haría inutilizable. Esa cifra es solo una aproximación, no una medición.
+
+Además, cuando el reporte encuentra un cliente repetido, revisa su lista de clientes ya encontrados para no anotarlo dos veces. Con muchos clientes recurrentes, esa revisión adicional también suma tiempo.
