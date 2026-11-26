@@ -156,6 +156,8 @@ function ventasDelDia(ventas, fecha) {
 
 
 module.exports = {
+    valorVenta,
+    normalizar,
     ventaMayor,
     totalVendido,
     unidadesVendidas,

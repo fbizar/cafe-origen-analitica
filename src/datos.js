@@ -1,3 +1,15 @@
+const productos = [
+    { producto: "Origen Huila 500 g", precio: 42000 },
+    { producto: "Prensa francesa", precio: 95000 },
+    { producto: "Origen Nariño 250 g", precio: 26000 },
+    { producto: "Molino manual", precio: 120000 },
+    { producto: "Origen Sierra 500 g", precio: 45000 },
+];
+
+const ciudades = [
+    "Medellín", "Bogotá", "Cali", "Pereira"
+];
+
 const ventas = [
     { id: 1, fecha: "2026-09-01", cliente: "C01", producto: "Origen Huila 500 g", ciudad: "Medellín", cantidad: 2, precio: 42000 },
     { id: 2, fecha: "2026-09-01", cliente: "C02", producto: "Origen Nariño 250 g", ciudad: "Bogotá", cantidad: 1, precio: 26000 },
@@ -13,4 +25,4 @@ const ventas = [
     { id: 12, fecha: "2026-09-06", cliente: "C08", producto: "Origen Nariño 250 g", ciudad: "Bogotá", cantidad: 3, precio: 26000 },
 ];
 
-module.exports = ventas;
+module.exports = { ventas, ciudades, productos };

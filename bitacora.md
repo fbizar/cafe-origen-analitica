@@ -367,3 +367,65 @@ console.log(ticketPromedio(ventas) ?? "Sin ventas válidas");     // ≈ 89545.4
 |---|---|---|---|
 | Ciudad duplicada | 6 claves (Medellín repetida tres veces) | 4 claves | `Object.keys(...).length` |
 | Ticket promedio de un día sin ventas | `NaN` | `null` | `ticketPromedio(ventasDelDia(ventas, "2026-09-30"))` |
+
+## Minireto 5: ¿Cuánto cuesta cada reporte?
+Se ha creado un nuevo archivo `src/medir.js`, en el que se van a medir las operaciones de las funciones `totalVendido`, `ventaMayor`,`totalPorCiudad` y `primeraVenta` (nuevo), para estimar de esa forma su complejidad.
+### Predicción antes de medir: si n se multiplica por 10
+
+Regla de conteo: 1 por elemento visitado y 1 por cada comparación.
+
+| Función | Operaciones esperadas | Si n × 10, las operaciones se multiplican por | Complejidad |
+|---|---|---|---|
+| `totalVendido` | 2n (visita + `cantidad <= 0`) | **× 10** | O(n) |
+| `ventaMayor` | entre 2n y 3n (la comparación `valorActual > valorMayor` solo se hace en ventas válidas) | **× 10** | O(n) |
+| `totalPorCiudad` | 2n (visita + `cantidad > 0`) | **× 10** | O(n) |
+| `primeraVenta` | constante (no recorre el arreglo) | **× 1** | O(1) |
+
+### Resultados de la medición
+
+Conteo de operaciones con datos de `generarVentas(n)` desde `src/medir.js`, usando la regla definida: 1 por elemento visitado y 1 por cada comparación.
+
+| Función | n = 100 | n = 1000 | n = 10000 | n = 100000 | Factor al pasar de n a 10n | Complejidad |
+|---|---|---|---|---|---|---|
+| `totalVendidoC` | 200 | 2000 | 20000 | 200000 | × 10 | O(n) |
+| `ventaMayorC` | 300 | 3000 | 30000 | 300000 | × 10 | O(n) |
+| `totalPorCiudadC` | 200 | 2000 | 20000 | 200000 | × 10 | O(n) |
+| `primeraVentaC` | 1 | 1 | 1 | 1 | × 1 | O(1) |
+
+Los resultados coinciden con la predicción: las tres funciones que recorren el arreglo se multiplican por 10 cuando n se multiplica por 10, y `primeraVentaC` no cambia.
+
+#### Justificación de la complejidad
+
+**`totalVendidoC`: O(n).**
+- **Código:** tiene un único `for...of` que visita cada venta una vez. En cada vuelta se cuentan dos operaciones: la visita y la comparación `cantidad <= 0`. No hay ciclos anidados ni recorridos adicionales.
+- **Números:** el conteo es exactamente 2n (200, 2000, 20000, 200000). Al dividir cada fila entre la anterior siempre da 10, así que el trabajo crece en proporción directa a n.
+
+**`totalPorCiudadC`: O(n).**
+- **Código:** usa un único `reduce` sobre `ventas`, con la condición `cantidad > 0` dentro del callback (no hay un `filter` previo). `reduce` llama al callback una vez por elemento, y en cada llamada se cuentan dos operaciones: la visita y la comparación. No hay recorridos adicionales ni arreglos intermedios.
+- **Números:** el conteo es exactamente 2n (200, 2000, 20000, 200000), igual que `totalVendidoC`. Al pasar de n a 10n el factor es siempre ×10.
+- Normalizar la ciudad y acumular en el objeto cuestan lo mismo sin importar el tamaño del arreglo, por eso no cambian el crecimiento.
+- Si la condición estuviera en un `filter` encadenado antes del `reduce`, el conteo sería mayor (hasta 3n, porque `filter` recorre todo y `reduce` recorre las válidas), pero seguiría siendo O(n).
+
+**`ventaMayorC`: O(n).**
+- **Código:** también tiene un único `for...of`. La diferencia es que las ventas válidas hacen una comparación más (`valorActual > valorMayor`), así que cada una cuesta 3 operaciones: la visita y dos comparaciones.
+- **Números:** el conteo es exactamente 3n (300, 3000, 30000, 300000). Es exacto porque `generarVentas` solo crea ventas con `cantidad >= 1`, así que todas son válidas. Con datos que incluyan cantidades en 0, el costo estaría entre 2n y 3n, pero el factor de crecimiento seguiría siendo ×10.
+- El 3 es una constante: hace el conteo más grande que el de `totalVendidoC`, pero no cambia que crezca de forma lineal.
+
+**`primeraVentaC`: O(1).**
+- **Código:** solo accede a una posición del arreglo (la primera venta) y no tiene ciclo.
+- **Números:** da 1 para n = 100 y para n = 100000. Su costo no depende del tamaño de la entrada.
+
+**Por qué las constantes (2 y 3) no cambian la complejidad:** al multiplicar n por 10, `2n` pasa a `20n` y `3n` pasa a `30n`. En ambos casos el factor es ×10. Las constantes cambian el valor absoluto del conteo, no la forma en que crece.
+
+#### Por qué cada función comprueba la cantidad
+
+En `totalVendidoC`, `ventaMayorC` y `totalPorCiudadC` hay una condición sobre `cantidad` (`<= 0` o `> 0`) porque una venta con cantidad 0 o negativa no es una venta real. Es la misma regla en todo el proyecto:
+
+- **Coherencia entre funciones:** si una función cuenta esas ventas y otra no, los resultados dejan de cuadrar (por ejemplo, el total por ciudad no sumaría lo mismo que el total vendido).
+- **`totalVendidoC`:** una venta con cantidad 0 aporta 0 al total, pero una cantidad negativa (una devolución) lo reduciría. La condición evita ese efecto.
+- **`ventaMayorC`:** sin la condición, si todas las ventas tuvieran cantidad 0, la función devolvería un registro con valor 0 como "venta mayor", en lugar de `null`.
+- **`totalPorCiudadC`:** sin la condición, una ciudad cuya única venta tuviera cantidad 0 aparecería en el resultado con total 0, como si hubiera comprado sin generar dinero.
+
+**Costo de la condición:** es una comparación por elemento, y se hace siempre, incluso en las ventas que se descartan. Por eso aparece en el conteo (es el segundo 1 de cada vuelta) y por eso `totalVendidoC` cuesta 2n y no n. Es un costo constante por elemento, así que no cambia la complejidad: sigue siendo O(n).
+
+`primeraVentaC` no hace esta comprobación porque no recorre el arreglo: devuelve la primera posición tal cual.
