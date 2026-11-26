@@ -508,3 +508,105 @@ Esto significa que el trabajo no crece al mismo ritmo que las ventas, sino mucho
 Con base en ese comportamiento, se puede estimar que con un millón de ventas el reporte tardaría alrededor de 3 horas, lo que lo haría inutilizable. Esa cifra es solo una aproximación, no una medición.
 
 Además, cuando el reporte encuentra un cliente repetido, revisa su lista de clientes ya encontrados para no anotarlo dos veces. Con muchos clientes recurrentes, esa revisión adicional también suma tiempo.
+
+## Minireto 7: Tiempo, memoria y cadenas de métodos
+### Recorridos y arreglos nuevos: `totalCiudadCadena` vs `totalCiudadUnaPasada`
+
+| | `totalCiudadCadena` | `totalCiudadUnaPasada` |
+|---|---|---|
+| Recorridos | 4: `map` (n), `filter` (n), `map` (k), `reduce` (k) | 1: el `for...of` (n) |
+| Arreglos nuevos | 3: el de cada `map` y el del `filter` (el `reduce` devuelve un número) | 0 |
+| Otros objetos nuevos | n copias de cada venta, por el spread `{ ...venta }` | ninguno |
+| Visitas en el peor caso (k = n) | 4n | n |
+| **Tiempo** | **O(n)** | **O(n)** |
+| **Espacio adicional** | **O(n)** | **O(1)** |
+
+Aquí k es la cantidad de ventas de la ciudad buscada (k ≤ n).
+
+**Espacio de `totalCiudadCadena`:** el primer `map` crea un arreglo de n elementos y además n objetos nuevos (las copias). El `filter` crea un arreglo de k referencias y el segundo `map` uno de k números. En total el espacio crece en proporción a n, así que es O(n).
+
+**Espacio de `totalCiudadUnaPasada`:** solo usa `objetivo` y `total`, dos variables que no dependen de n. `normalizar` crea textos temporales cortos en cada vuelta, pero se descartan al terminar la vuelta y su tamaño no depende de n. Es O(1).
+
+### Por qué ambas son O(n) en tiempo
+
+Al sumar los recorridos de `totalCiudadCadena`, el trabajo es n + n + k + k, que como máximo es 4n. En notación Big O se eliminan las constantes multiplicativas, porque no cambian cómo crece el trabajo: 4n se simplifica a n, igual que el n de la versión de una pasada.
+
+Con los números: si n se multiplica por 10, `4n` pasa a `40n` y `n` pasa a `10n`. En ambas el trabajo se multiplica por 10. La versión en cadena hace hasta 4 veces más visitas, y eso puede notarse en el tiempo real, pero no cambia la forma de crecer. Big O describe el crecimiento y no el tiempo exacto.
+
+La diferencia real entre las dos está en el espacio: O(n) frente a O(1).
+
+### Complejidad espacial de las funciones del motor
+
+El espacio se refiere a la memoria adicional que usa la función, sin contar los datos de entrada.
+
+| Función | Guarda | Espacio |
+|---|---|---|
+| `valorVenta` | un número | O(1) |
+| `normalizar` | un texto temporal del tamaño de un nombre de ciudad | O(1) |
+| `totalVendido` | un acumulador | O(1) |
+| `unidadesVendidas` | un acumulador | O(1) |
+| `ventasPorCiudad` | un acumulador y la ciudad normalizada | O(1) |
+| `ventaMayor` | dos variables (una referencia a una venta que ya existe, no una copia) | O(1) |
+| `ticketPromedio` | dos acumuladores | O(1) |
+| `totalVendidoM` | un arreglo nuevo con las ventas válidas (`filter`) | O(n) |
+| `unidadesVendidasM` | un arreglo nuevo con las ventas válidas (`filter`) | O(n) |
+| `ventasPorCiudadM` | un arreglo nuevo con las ventas válidas (`filter`) | O(n) |
+| `primeraVenta` | nada adicional, solo accede a una posición | O(1) |
+| `totalCiudadUnaPasada` | dos variables (`objetivo` y `total`) | O(1) |
+| `totalPorCiudad` | un valor por ciudad distinta | O(ciudades) |
+| `unidadesPorProducto` | un valor por producto distinto | O(productos) |
+| `topProductosPorValor` | uno por producto + `Object.entries` | O(productos) |
+| `ventasDelDia` | un arreglo con las ventas de ese día (`filter`) | O(ventas del día) |
+| `clientesRecurrentes` | el arreglo `recurrentes` con los clientes repetidos | O(clientes repetidos) |
+| `totalCiudadCadena` | tres arreglos nuevos + n copias de venta | O(n) |
+
+Con c = ciudades distintas, p = productos distintos y d = ventas del día, todos ≤ n.
+
+#### `totalPorCiudad`
+
+Usa memoria adicional proporcional a la cantidad de **grupos**, no a la cantidad de ventas. Si las ventas pasan de 12 a 1 000 000 pero siguen siendo 4 ciudades, el objeto sigue teniendo 4 claves. Por eso en la práctica el espacio casi no crece con n.
+
+Formalmente no es O(1), porque el número de claves depende de los datos: en el peor caso, cada venta es de una ciudad distinta, c = n y el espacio es O(n). Por eso se escribe **O(c)**, con c ≤ n.
+
+`normalizar` también influye en la memoria: sin normalizar, `"Bogotá"` y `"Bogotá "` crearían dos claves, es decir, más grupos y más memoria (el error que reportó la gerente).
+
+#### `topProductosPorValor`
+
+Aunque devuelve solo k productos, la memoria que usa **no depende de k** sino de p. Antes de cortar con `slice(0, k)`, la función guarda:
+
+- el objeto con el total de cada producto (p claves),
+- el arreglo de parejas de `Object.entries` (p elementos),
+- el arreglo de objetos `{ producto, total }` del `map` (p elementos),
+- y el `sort` puede usar espacio auxiliar de orden p.
+
+Son varias estructuras de tamaño p, pero siguen siendo un múltiplo constante de p, así que el espacio es **O(p)**, no O(k). El arreglo `ventas` original no se toca porque `sort` opera sobre el arreglo que creó `map`. Si hubiera que copiar con `[...arreglo].sort(...)`, se sumaría otra copia O(p) y la clase seguiría siendo O(p).
+
+#### Resumen
+
+- **Memoria adicional constante, O(1):** `valorVenta`, `normalizar`, `totalVendido`, `unidadesVendidas`, `ventasPorCiudad`, `ventaMayor`, `ticketPromedio`, `primeraVenta` y `totalCiudadUnaPasada`.
+- **Memoria proporcional a los datos:** `totalVendidoM`, `unidadesVendidasM` y `ventasPorCiudadM` (O(n), por el arreglo que crea `filter`), `totalPorCiudad` (O(ciudades)), `unidadesPorProducto` (O(productos)), `topProductosPorValor` (O(productos)), `ventasDelDia` (O(ventas del día)), `clientesRecurrentes` (O(clientes repetidos)) y `totalCiudadCadena` (O(n)).
+- **Idea clave:** cada vez que una función crea un arreglo u objeto cuyo tamaño depende de los datos (con `filter`, `map`, `Object.entries` o un objeto de grupos), deja de ser O(1) en espacio.
+
+### Decisión: versión de `totalCiudad` que queda en el motor
+
+**Se elige `totalCiudadUnaPasada`.**
+
+| Criterio | `totalCiudadCadena` | `totalCiudadUnaPasada` |
+|---|---|---|
+| Tiempo | O(n), hasta 4n visitas | O(n), n visitas |
+| Espacio adicional | O(n): tres arreglos y n copias de venta | O(1): dos variables |
+| Legibilidad | Cada etapa tiene un nombre (normalizar, filtrar, valorar, sumar) | Un solo ciclo con una condición y una suma |
+
+**Justificación**
+
+- **Recursos:** ambas son O(n) en tiempo, pero la de una pasada hace una cuarta parte de las visitas en el peor caso y no crea arreglos ni copias. Con datos grandes, esa diferencia se nota en memoria y en tiempo real, aunque no en la notación Big O. En espacio la diferencia sí es de clase: O(n) frente a O(1).
+- **Legibilidad:** la versión en cadena se lee por etapas, y eso es una ventaja real cuando cada etapa hace algo distinto. Aquí no es el caso: la cadena copia cada venta (`{ ...venta }`) solo para normalizar la ciudad, y esa copia no se necesita porque basta comparar `normalizar(venta.ciudad)` dentro del ciclo. El ciclo es más corto y su lógica es directa, así que la ganancia de legibilidad de la cadena es pequeña.
+- **Costo de elegirla:** hay que leer el cuerpo del ciclo para saber qué hace, mientras que en la cadena cada método describe su paso. Con una función tan corta, ese costo es bajo.
+
+**Conclusión:** como la legibilidad es parecida y los recursos son claramente mejores, se deja `totalCiudadUnaPasada`. `totalCiudadCadena` se conserva solo como ejemplo en la bitácora para comparar.
+
+#### Observación: funciones equivalentes en el motor
+
+`totalCiudadUnaPasada` hace lo mismo que `ventasPorCiudad`: recorre las ventas una sola vez, normaliza la ciudad para comparar y suma el valor de las ventas válidas. Ambas tienen complejidad O(n) en tiempo y O(1) en espacio, y devuelven el mismo resultado para cualquier entrada.
+
+Por ahora se conservan las dos porque `totalCiudadCadena` y `totalCiudadUnaPasada` son parte del entregable de este avance (comparación de recursos entre dos versiones de `totalCiudad`). Mantener dos funciones equivalentes tiene un costo de mantenimiento: si cambia la regla de ventas válidas, hay que modificar ambas.

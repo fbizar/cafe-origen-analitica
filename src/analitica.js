@@ -69,18 +69,14 @@ function ticketPromedio(ventas) {
 
 // Ignora mayúsculas y espacios sobrantes
 function ventasPorCiudad(ventas, ciudad) {
-    const ciudadBuscada = normalizar(ciudad);
-    let total = 0
+    const objetivo = normalizar(ciudad);
+    let total = 0;
     for (const venta of ventas) {
-
-        if (venta.cantidad <= 0) continue;
-
-        if (normalizar(venta.ciudad) === ciudadBuscada) {
+        if (venta.cantidad > 0 && normalizar(venta.ciudad) === objetivo) {
             total += valorVenta(venta);
         }
     }
-
-    return total
+    return total;
 }
 
 /** 
@@ -154,6 +150,28 @@ function ventasDelDia(ventas, fecha) {
     return ventas.filter((venta) => String(venta.fecha ?? "").trim() === fechaBuscada);
 }
 
+// Reporte por ciudad
+function totalCiudadCadena(ventas, ciudad){
+    const objetivo = normalizar(ciudad);
+    return ventas
+    .map((venta) => ({ ...venta, ciudad: normalizar(venta.ciudad)}))
+    .filter((venta) => venta.cantidad > 0 && venta.ciudad === objetivo)
+    .map(v => valorVenta(v))
+    .reduce((s,x) => s +x, 0);
+}
+
+
+function totalCiudadUnaPasada(ventas, ciudad){
+    const objetivo = normalizar(ciudad);
+    let total = 0;
+    for (const venta of ventas) {
+        if (venta.cantidad > 0 && normalizar(venta.ciudad) === objetivo) {
+            total += valorVenta(venta);
+        }
+    }
+    return total;
+}
+
 
 module.exports = {
     valorVenta,
@@ -169,7 +187,9 @@ module.exports = {
     totalPorCiudad,
     unidadesPorProducto,
     topProductosPorValor,
-    ventasDelDia
+    ventasDelDia,
+    totalCiudadCadena,
+    totalCiudadUnaPasada
 };
 
 // console.table(totalPorCiudad([]));

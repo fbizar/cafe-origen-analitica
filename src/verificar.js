@@ -1,4 +1,5 @@
-const ventas = require("./datos");
+const {ventas} = require("./datos");
+const generarVentas = require("./generador");
 const {
     totalVendido,
     unidadesVendidas,
@@ -8,7 +9,9 @@ const {
     ventasPorCiudadM,
     totalPorCiudad,
     unidadesPorProducto,
-    topProductosPorValor
+    topProductosPorValor,
+    totalCiudadCadena,
+    totalCiudadUnaPasada
 } = require("./analitica");
 
 function comparar(nombre, resultadoCiclo, resultadoMetodos) {
@@ -37,3 +40,7 @@ console.log("")
 console.log(totalPorCiudad(ventas));
 console.log(unidadesPorProducto(ventas));
 console.log(topProductosPorValor(ventas, 3));
+
+const ventasG = generarVentas(10000);
+console.log("---------- Total ciudad: Cadena vs Una Pasada ----------")
+comparar("Total ciudad (10.000 ventas - Buscada: Pereira)", totalCiudadUnaPasada(ventasG,"Pereira"),totalCiudadCadena(ventasG,"Pereira"));
