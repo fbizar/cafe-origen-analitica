@@ -9,6 +9,8 @@ const normalizar = (texto) =>
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
+const primeraVenta = (ventas) => ventas[0];
+
 /** 
 ##################################
      Funciones con ciclos
@@ -150,6 +152,20 @@ function ventasDelDia(ventas, fecha) {
     return ventas.filter((venta) => String(venta.fecha ?? "").trim() === fechaBuscada);
 }
 
+// Clientes recurrentes
+function clientesRecurrentes(ventas) {
+    const recurrentes = [];
+    for (let i = 0; i < ventas.length; i++) {
+        for (let j = i + 1; j < ventas.length; j++) {
+            if (ventas[i].cliente === ventas[j].cliente &&
+                !recurrentes.includes(ventas[i].cliente)) {
+                recurrentes.push(ventas[i].cliente);
+            }
+        }
+    }
+    return recurrentes;
+}
+
 // Reporte por ciudad
 function totalCiudadCadena(ventas, ciudad){
     const objetivo = normalizar(ciudad);
@@ -174,6 +190,7 @@ function totalCiudadUnaPasada(ventas, ciudad){
 
 
 module.exports = {
+    primeraVenta,
     valorVenta,
     normalizar,
     ventaMayor,
@@ -188,6 +205,7 @@ module.exports = {
     unidadesPorProducto,
     topProductosPorValor,
     ventasDelDia,
+    clientesRecurrentes,
     totalCiudadCadena,
     totalCiudadUnaPasada
 };

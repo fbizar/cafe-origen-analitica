@@ -1,6 +1,14 @@
 import { ventaMayorC, totalVendidoC, totalPorCiudadC, primeraVentaC } from "./instrumentadas.js"
 import generarVentas from "./generador.js"
+import {
+    totalVendido, unidadesVendidas, ventaMayor, ticketPromedio, ventasPorCiudad,
+    totalVendidoM, unidadesVendidasM, ventasPorCiudadM,
+    totalPorCiudad, unidadesPorProducto, topProductosPorValor,
+    ventasDelDia, clientesRecurrentes,
+    totalCiudadCadena, totalCiudadUnaPasada, primeraVenta,
+} from "./analitica.js";
 import {ventas} from "./datos.js";
+
 
 // Mediciones de número de operaciones
 const numeros = [100,1000,10000,100000]
@@ -22,20 +30,53 @@ for (const n of numeros) {
     resultado.push(itemResultado);
 }
 // Mediciones de tiempo de ejecución.
+const numeros2 = [1000,2000,4000,8000,16000]
 
-const numeros2 = [1000,2000,4000,8000,16000,100000]
-function clientesRecurrentes(ventas) {
-    const recurrentes = [];
-    for (let i = 0; i < ventas.length; i++) {
-        for (let j = i + 1; j < ventas.length; j++) {
-            if (ventas[i].cliente === ventas[j].cliente &&
-                !recurrentes.includes(ventas[i].cliente)) {
-                recurrentes.push(ventas[i].cliente);
-            }
-        }
+
+// Mediciones de todas las funciones 
+const datos = generarVentas(10000);
+const ciudad = datos[0].ciudad;
+const fecha = datos[0].fecha;
+
+let sumidero; // guarda el resultado para que el motor de JavaScript no elimine la llamada
+
+function medir(fn, repeticiones) {
+    sumidero = fn(); // calentamiento
+    const tiempos = [];
+    for (let r = 0; r < 5; r++) {
+        const inicio = performance.now();
+        for (let i = 0; i < repeticiones; i++) sumidero = fn();
+        tiempos.push((performance.now() - inicio) / repeticiones);
     }
-    return recurrentes;
+    tiempos.sort((a, b) => a - b);
+    return tiempos[2]; // mediana, en ms por llamada
 }
+
+const pruebas = [
+    ["primeraVenta", () => primeraVenta(datos), 100000],
+    ["totalVendido", () => totalVendido(datos), 200],
+    ["unidadesVendidas", () => unidadesVendidas(datos), 200],
+    ["ventaMayor", () => ventaMayor(datos), 200],
+    ["ticketPromedio", () => ticketPromedio(datos), 200],
+    ["ventasPorCiudad", () => ventasPorCiudad(datos, ciudad), 200],
+    ["totalVendidoM", () => totalVendidoM(datos), 200],
+    ["unidadesVendidasM", () => unidadesVendidasM(datos), 200],
+    ["ventasPorCiudadM", () => ventasPorCiudadM(datos, ciudad), 200],
+    ["totalPorCiudad", () => totalPorCiudad(datos), 200],
+    ["unidadesPorProducto", () => unidadesPorProducto(datos), 200],
+    ["topProductosPorValor", () => topProductosPorValor(datos, 3), 200],
+    ["ventasDelDia", () => ventasDelDia(datos, fecha), 200],
+    ["totalCiudadCadena", () => totalCiudadCadena(datos, ciudad), 200],
+    ["totalCiudadUnaPasada", () => totalCiudadUnaPasada(datos, ciudad), 200],
+    ["clientesRecurrentes", () => clientesRecurrentes(datos), 1],
+];
+
+const resultados = [];
+for (const [nombre, fn, repeticiones] of pruebas) {
+    resultados.push({ funcion: nombre, "ms por llamada": medir(fn, repeticiones).toFixed(4) });
+}
+
+// Imprimir las mediciones
 
 console.log("=================================")
 console.log("Mediciones")
@@ -43,7 +84,7 @@ console.log("=================================")
 console.log("> Número de operaciones: ")
 console.table(resultado);
 console.log("> Tiempo de ejecución: ")
-console.log("Búsqueda de clientes recurrentes")
+console.log("1. Búsqueda de clientes recurrentes")
 
 for (const n of numeros2) {
     const ventas = generarVentas(n);
@@ -52,3 +93,5 @@ for (const n of numeros2) {
     console.timeEnd(`${n} ventas`);
 }
 
+console.log("2. Todas las funciones con 10.000 ventas")
+console.table(resultados);
