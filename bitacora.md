@@ -610,3 +610,192 @@ Son varias estructuras de tamaño p, pero siguen siendo un múltiplo constante d
 `totalCiudadUnaPasada` hace lo mismo que `ventasPorCiudad`: recorre las ventas una sola vez, normaliza la ciudad para comparar y suma el valor de las ventas válidas. Ambas tienen complejidad O(n) en tiempo y O(1) en espacio, y devuelven el mismo resultado para cualquier entrada.
 
 Por ahora se conservan las dos porque `totalCiudadCadena` y `totalCiudadUnaPasada` son parte del entregable de este avance (comparación de recursos entre dos versiones de `totalCiudad`). Mantener dos funciones equivalentes tiene un costo de mantenimiento: si cambia la regla de ventas válidas, hay que modificar ambas.
+
+## Minireto 9: Clientes recurrentes en tiempo real
+### Resolución del problema usando el método de 6 pasos
+
+#### 1. Entender
+
+Se necesita buscar en el arreglo de ventas los id de clientes que aparecen al menos dos veces, y devolver una lista de strings con esos clientes "recurrentes". La búsqueda debe ser rápida: con 100.000 ventas debe tardar menos de 1 segundo.
+
+- **Entrada:** `ventas`, un arreglo de objetos con (al menos) el campo `cliente`, por ejemplo `"C01"`.
+- **Salida:** un arreglo de strings con los clientes que tienen 2 o más ventas.
+  - Cada cliente aparece una sola vez, aunque tenga muchas ventas.
+  - El orden es el de su primera aparición en `ventas`, igual que en la versión actual.
+  - Si no hay ventas o ningún cliente repite, devuelve `[]`.
+- **Restricciones:**
+  - Si `ventas` es un arreglo vacío, `undefined` o `null`, devuelve `[]`.
+  - No modifica `ventas`.
+  - Complejidad objetivo: O(n) en tiempo.
+
+#### 2. Ejemplos
+
+| # | Entrada (clientes de cada venta) | Salida esperada | Qué prueba |
+|---|---|---|---|
+| 1 | `[]` | `[]` | Arreglo vacío |
+| 2 | `undefined` y `null` | `[]` | Entrada inválida |
+| 3 | `C01` | `[]` | Una sola venta |
+| 4 | `C01, C02, C03` | `[]` | Nadie repite |
+| 5 | `C01, C02, C01` | `["C01"]` | Un cliente repite |
+| 6 | `C01, C01, C01` | `["C01"]` | Un cliente con 3 ventas aparece una sola vez |
+| 7 | `C01, C02, C02, C01` | `["C01", "C02"]` | Orden de primera aparición (C01 aparece antes, aunque C02 completa su pareja primero) |
+| 8 | `C01, C02, C03, C01, C04` (ids 1 a 5 de `ventas`) | `["C01"]` | Coincide con la traza de la bitácora |
+| 9 | Las 12 ventas de `ventas` | `["C01", "C02", "C03"]` | Caso completo |
+
+Cálculo a mano del ejemplo 9: C01 aparece 3 veces (ids 1, 4 y 11), C02 aparece 2 veces (ids 2 y 7), C03 aparece 2 veces (ids 3 y 9), y C04 a C08 aparecen una sola vez. Los recurrentes, en orden de primera aparición, son C01, C02 y C03.
+
+#### 3. Fuerza bruta
+
+Comparar cada venta con todas las siguientes. Si los clientes coinciden y todavía no está en la lista de recurrentes, se agrega.
+
+```text
+para i de 0 a n - 1:
+    para j de i + 1 a n - 1:
+        si ventas[i].cliente = ventas[j].cliente
+           y recurrentes no contiene ventas[i].cliente:
+            agregar ventas[i].cliente a recurrentes
+devolver recurrentes
+```
+
+- **Tiempo:** n(n − 1) / 2 pares, es decir, **O(n²)**. Además, `includes` recorre `recurrentes` en cada coincidencia, así que en el peor caso llega a O(n³).
+- **Espacio:** O(m), con m = clientes repetidos.
+- **Evidencia:** 304,7 ms con 10.000 ventas, y casi 2 minutos con 100.000. No cumple el requisito de menos de 1 segundo.
+
+#### 4. Optimizar
+
+**Trabajo repetido:**
+- Cada venta se compara con todas las siguientes, aunque su cliente ya se haya revisado muchas veces.
+- `includes` vuelve a recorrer la lista de recurrentes en cada coincidencia, para una pregunta que ya se respondió.
+
+**Información que se puede guardar para no buscarla de nuevo:** cuántas veces apareció cada cliente. Con un objeto usado como diccionario (clave = cliente, valor = cantidad de ventas), contar un cliente es una consulta directa, sin comparar con las demás ventas.
+
+**Estrategia elegida:** dos pasadas.
+1. Recorrer `ventas` una vez y contar las ventas de cada cliente.
+2. Recorrer el diccionario y quedarse con los clientes cuyo conteo sea 2 o más.
+
+```text
+función clientesRecurrentes(ventas):
+    si ventas no es un arreglo:
+        devolver lista vacía
+
+    vistos ← conjunto vacío
+    recurrentes ← conjunto vacío
+    para cada venta en ventas:
+        si vistos contiene venta.cliente:
+            agregar venta.cliente a recurrentes
+        si no:
+            agregar venta.cliente a vistos
+
+    devolver recurrentes como lista
+```
+
+Con un arreglo vacío, los dos ciclos no se ejecutan y la función devuelve la lista vacía sin necesitar una comprobación aparte.
+
+- **Tiempo:** primera pasada n, segunda pasada c (clientes distintos, c ≤ n). Total n + c, que se simplifica a **O(n)**.
+- **Espacio:** el diccionario tiene una clave por cliente distinto: **O(c)**. Es más que el O(m) de la versión actual, a cambio de pasar de O(n²) a O(n).
+
+**Alternativas descartadas:**
+- *Contar y agregar a `recurrentes` en la misma pasada, cuando el conteo llega a 2.* También es O(n), pero el orden cambia: en el ejemplo 7 devolvería `["C02", "C01"]`, porque C02 completa su pareja antes. Con las dos pasadas, el orden coincide con la versión actual y se puede comparar con `verificar.js`.
+- *Ordenar las ventas por cliente y mirar los vecinos.* Es O(n log n), más lento que contar, y además hay que copiar el arreglo para no modificar el original.
+
+#### 5. Implementar
+
+```javascript
+function clientesRecurrentesSet(ventas) {
+    if (!Array.isArray(ventas)) return [];
+
+    const vistos = new Set();
+    const recurrentes = new Set();
+    for (const v of ventas) {
+        if (vistos.has(v.cliente)) recurrentes.add(v.cliente);
+        else vistos.add(v.cliente);
+    }
+    return [...recurrentes];
+}
+```
+
+- **Estrategia:** en lugar de comparar cada venta con todas las demás, se guarda en `vistos` cada cliente que ya apareció. Si un cliente llega y ya está en `vistos`, es recurrente y se agrega a `recurrentes`.
+- **Por qué es O(n):** un solo ciclo, y `has` y `add` de un `Set` cuestan O(1) en promedio. El `Set` `recurrentes` ignora los repetidos, así que ya no hace falta `includes`.
+- **Espacio:** O(c), con c = clientes distintos.
+- **Entrada inválida:** si `ventas` no es un arreglo devuelve `[]`. Con un arreglo vacío devuelve `[]` sin comprobación aparte.
+- **Orden de salida:** un cliente se agrega cuando aparece por segunda vez, así que el orden puede diferir del de la versión O(n²). El contenido es el mismo.
+
+#### 6. Probar
+
+**Ejemplos y casos borde** (versión `clientesRecurrentesSet`, ejecutados con `src/verificar.js`, comparando los resultados ordenados):
+
+| # | Entrada | Esperado | Obtenido | Resultado |
+|---|---|---|---|---|
+| 1 | `[]` | `[]` | `[]` | OK |
+| 2a | `undefined` | `[]` | `[]` | OK |
+| 2b | `null` | `[]` | `[]` | OK |
+| 3 | `C01` | `[]` | `[]` | OK |
+| 4 | `C01, C02, C03` | `[]` | `[]` | OK |
+| 5 | `C01, C02, C01` | `["C01"]` | `["C01"]` | OK |
+| 6 | `C01, C01, C01` | `["C01"]` | `["C01"]` | OK |
+| 7 | `C01, C02, C02, C01` | `["C02", "C01"]` | `["C02", "C01"]` | OK |
+| 8 | Ids 1 a 5 de `ventas` | `["C01"]` | `["C01"]` | OK |
+| 9 | Las 12 ventas | `["C01", "C02", "C03"]` | `["C01", "C02", "C03"]` | OK |
+
+El arreglo `ventas` no se modificó después de llamar a la función.
+
+**Sobre el orden:** el caso 7 muestra que `Set` agrega un cliente a `recurrentes` cuando aparece por segunda vez: C02 completa su pareja antes que C01, así que sale primero. La versión original devuelve `["C01", "C02"]` (orden de primera aparición). Ambas contienen los mismos clientes, por eso las comparaciones entre versiones se hacen con los resultados ordenados.
+
+**Comparación con las otras versiones** (ejecutada con `src/verificar.js`, comparando los resultados ordenados):
+
+| Entrada | Original | Set | Map | Mismos clientes | Mismo orden que la original |
+|---|---|---|---|---|---|
+| 12 ventas (Día 1) | 3 | 3 | 3 | OK | Set: sí, Map: sí |
+| Arreglo vacío | 0 | 0 | 0 | OK | Set: sí, Map: sí |
+| Una venta | 0 | 0 | 0 | OK | Set: sí, Map: sí |
+| 5.000 ventas, intento 1 | 1.348 | 1.348 | 1.348 | OK | Set: no, Map: sí |
+| 5.000 ventas, intento 2 | 1.344 | 1.344 | 1.344 | OK | Set: no, Map: sí |
+| 5.000 ventas, intento 3 | 1.345 | 1.345 | 1.345 | OK | Set: no, Map: sí |
+| 5.000 ventas, intento 4 | 1.338 | 1.338 | 1.338 | OK | Set: no, Map: sí |
+| 5.000 ventas, intento 5 | 1.319 | 1.319 | 1.319 | OK | Set: no, Map: sí |
+
+Con los datos del Día 1 y con cinco arreglos distintos de 5.000 ventas generadas, las tres versiones devuelven los mismos clientes, sin duplicados. La cantidad de clientes recurrentes cambia entre intentos porque `generarVentas` usa azar, pero es igual en las tres columnas de cada fila.
+
+`Map` conserva el orden de primera aparición, igual que la original, porque guarda los clientes en el orden en que los ve. `Set` agrega cada cliente cuando aparece por segunda vez, y con datos aleatorios eso cambia el orden casi siempre. Este orden es irrelevante para el reporte de la gerente, que solo necesita saber quiénes son los clientes recurrentes.
+
+#### Decisión: número de versiones a comparar
+
+La consigna menciona tres versiones (original, `Set` y `Map`), mientras que el video del avance menciona dos (original y `Set`). Como la consigna escrita no define una versión `Map` de `clientesRecurrentes`, se interpretó como la lista de los clientes con 2 o más compras en el `Map` que devuelve `comprasPorCliente` (`clientesRecurrentesMap`).
+
+Se verificaron las tres versiones. La comparación entre la original y `Set` es la que piden las dos fuentes; la de `Map` es adicional. (Pendiente de confirmar con el docente.)
+
+### Medición de las tres versiones de `clientesRecurrentes`
+
+Datos: `generarVentas(n)`, el mismo arreglo para las tres versiones en cada tamaño. Tiempos medidos con `console.time`, en el mismo equipo, con una llamada de calentamiento sin cronometrar. Valores en milisegundos. Cada valor es una sola llamada, sin mediana.
+
+**Predicción (antes de medir):** la original es O(n²), así que al multiplicar n por 10 el tiempo debería multiplicarse por ≈ 100. `Set` y `Map` son O(n): por ≈ 10.
+
+| n | Original (ms) | Set (ms) | Map (ms) |
+|---|---|---|---|
+| 1.000 | 10,805 | 0,177 | 0,226 |
+| 10.000 | 857,623 | 1,06 | 1,433 |
+| 100.000 | no medido | 17,215 | 17,04 |
+
+| Al pasar de | Original | Set | Map |
+|---|---|---|---|
+| 1.000 a 10.000 | × 79,4 | × 6,0 | × 6,3 |
+| 10.000 a 100.000 | - | × 16,2 | × 11,9 |
+
+#### Intercambio entre tiempo y memoria de la nueva solución
+
+La nueva solución gasta más memoria para ahorrar mucho tiempo.
+
+La versión original no guarda nada sobre los clientes que ya revisó. Por eso, para cada venta tiene que volver a compararla con todas las siguientes, y ahí está el O(n²). La versión con `Set` hace lo contrario: guarda en `vistos` cada cliente que ya apareció, de modo que decidir si un cliente repite es una consulta directa. La información que antes se recalculaba ahora se recuerda.
+
+| | Original | `Set` | `Map` |
+|---|---|---|---|
+| **Tiempo** | O(n²) | O(n) | O(n) |
+| **Memoria adicional** | O(m) | O(c) | O(c) |
+| **Qué guarda** | La lista de recurrentes | `vistos` y `recurrentes` | El conteo de cada cliente y la lista de recurrentes |
+| **Tiempo medido con 10.000 ventas** | 857,6 ms | 1,06 ms | 1,43 ms |
+
+Aquí c es el número de clientes distintos y m el de clientes recurrentes (m ≤ c ≤ n).
+
+**Qué se paga:** la memoria pasa de O(m) a O(c). `vistos` guarda cada cliente distinto, aunque nunca llegue a repetir. Con `generarVentas`, el número de clientes ronda n/3, así que con 100.000 ventas son unas 30.000 entradas en `vistos`. Es una cantidad pequeña para un equipo actual. Este dato sale del análisis, no de una medición de memoria.
+
+**Qué se gana:** el tiempo pasa de crecer con el cuadrado de n a crecer en línea. Con 10.000 ventas, `Set` es unas 800 veces más rápida que la original. Con 100.000 ventas, `Set` tardó 17,2 ms, cuando la original tardaría del orden de 86 segundos (estimación, no medida).

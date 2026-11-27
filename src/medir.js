@@ -7,6 +7,7 @@ import {
     ventasDelDia, clientesRecurrentes,
     totalCiudadCadena, totalCiudadUnaPasada, primeraVenta,
 } from "./analitica.js";
+import { clientesRecurrentesSet, clientesRecurrentesMap } from "./optimizadas.js";
 import {ventas} from "./datos.js";
 
 
@@ -29,8 +30,26 @@ for (const n of numeros) {
     }
     resultado.push(itemResultado);
 }
+
+
+console.log("=================================")
+console.log("Mediciones")
+console.log("=================================")
+console.log("> Número de operaciones: ")
+console.table(resultado);
 // Mediciones de tiempo de ejecución.
+
 const numeros2 = [1000,2000,4000,8000,16000]
+
+console.log("> Tiempo de ejecución: ")
+console.log("1. Búsqueda de clientes recurrentes")
+
+for (const n of numeros2) {
+    const ventas = generarVentas(n);
+    console.time(`${n} ventas`);
+    clientesRecurrentes(ventas);
+    console.timeEnd(`${n} ventas`);
+}
 
 
 // Mediciones de todas las funciones 
@@ -76,22 +95,36 @@ for (const [nombre, fn, repeticiones] of pruebas) {
     resultados.push({ funcion: nombre, "ms por llamada": medir(fn, repeticiones).toFixed(4) });
 }
 
-// Imprimir las mediciones
-
-console.log("=================================")
-console.log("Mediciones")
-console.log("=================================")
-console.log("> Número de operaciones: ")
-console.table(resultado);
-console.log("> Tiempo de ejecución: ")
-console.log("1. Búsqueda de clientes recurrentes")
-
-for (const n of numeros2) {
-    const ventas = generarVentas(n);
-    console.time(`${n} ventas`);
-    clientesRecurrentes(ventas);
-    console.timeEnd(`${n} ventas`);
-}
-
 console.log("2. Todas las funciones con 10.000 ventas")
 console.table(resultados);
+
+// Mediciones de clientesRecurrentes
+
+console.log("3. Las '3' versiones de clientesRecurrentes")
+const MEDIR_ORIGINAL_100K = false;
+const numeros3 = [1000, 10000, 100000]
+
+function cronometrar(etiqueta, fn, repeticiones = 1, calentar = true) {
+    if (calentar) sumidero = fn(); // calentamiento: no se cronometra
+    const nombre = repeticiones > 1 ? `${etiqueta} (${repeticiones} llamadas)` : etiqueta;
+    console.time(nombre);
+    for (let i = 0; i < repeticiones; i++) sumidero = fn();
+    console.timeEnd(nombre);
+}
+
+for (const n of numeros3) {
+    const datos = generarVentas(n);
+    console.log(`--- ${n} ventas ---`);
+
+    if (n <= 10000) {
+        cronometrar(`original ${n} ventas`, () => clientesRecurrentes(datos));
+    } else if (MEDIR_ORIGINAL_100K) {
+        cronometrar(`original ${n} ventas`, () => clientesRecurrentes(datos), 1, false);
+    } else {
+        console.log(`original ${n} ventas: no medido`);
+    }
+
+    cronometrar(`Set ${n} ventas`, () => clientesRecurrentesSet(datos), 1);
+    cronometrar(`Map ${n} ventas`, () => clientesRecurrentesMap(datos), 1);
+}
+
