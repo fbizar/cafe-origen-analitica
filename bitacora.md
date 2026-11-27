@@ -1132,3 +1132,55 @@ Con los presupuestos de la consigna: 100.000 devuelve Filtros de papel x100 + Or
 **Por qué `mejorSemana` es O(n):** no hay ciclos anidados. La fuerza bruta vuelve a sumar los k − 1 días que dos ventanas consecutivas comparten; la ventana deslizante los reutiliza, y por eso desaparece el factor `k`. Con 100.000 días tardó 0,31 ms con `k = 7` y 0,52 ms con `k = 1000`, frente a 1,9 ms y 101,4 ms de la fuerza bruta.
 
 **Por qué `parMasCercano` es O(n log n) y no O(n):** el recorrido con dos punteros es lineal, pero solo funciona si los precios están ordenados, y ordenar tiene un costo de O(n log n) que es mayor que el recorrido. Si el catálogo ya viniera ordenado, la función sería O(n) (más la copia). La alternativa por fuerza bruta, probar todos los pares, es O(n²).
+
+## Avance 12: Analítica Café Origen v1.0
+
+### Reporte final: `src/reporte.js`
+
+**Uso:**
+- `node src/reporte.js`: datos reales del Día 1 (12 ventas).
+- `node src/reporte.js 100000`: 100.000 ventas generadas al azar con `generarVentas`.
+- Un argumento que no sea un entero positivo muestra cómo usar el comando.
+
+**Decisiones:**
+- La mejor semana usa `ventasDiarias` (la serie de septiembre) con los datos del Día 1, porque esas 12 ventas solo cubren 6 días. Con ventas generadas, los totales diarios salen de las propias ventas con `totalesPorDia`.
+- El reporte usa las versiones optimizadas (`clientesRecurrentesSet`, `comboRegalo`, `primerClienteUnico`, `mejorSemana`).
+- El reporte imprime el tiempo de generación de datos y el del reporte por separado.
+
+**Secciones y complejidad:**
+
+| Sección | Función | Tiempo | Espacio |
+|---|---|---|---|
+| Resumen general | `totalVendido`, `unidadesVendidas`, `ticketPromedio`, `ventaMayor` | O(n) | O(1) |
+| Ventas por ciudad | `totalPorCiudad` | O(n) | O(c) |
+| Unidades por producto | `unidadesPorProducto` | O(n) | O(p) |
+| Top 3 por valor | `topProductosPorValor` | O(n + p log p) | O(p) |
+| Ventas del día | `ventasDelDia` | O(n) | O(d) |
+| Clientes recurrentes | `clientesRecurrentesSet` | O(n) | O(c) |
+| Producto estrella por ciudad | `productoEstrellaPorCiudad` | O(n) | O(k) |
+| Combo de regalo | `comboRegalo` | O(n) con n = productos del catálogo | O(n) |
+| Cliente para el cupón | `primerClienteUnico` | O(n) | O(c) |
+| Mejor semana | `totalesPorDia` + `mejorSemana` | O(n) + O(días) | O(1) |
+
+Ninguna función del reporte final es O(n²): las únicas del proyecto con ese costo (`clientesRecurrentes` original, `mejorSemanaBruta` con `k` grande y `comboRegaloFuerzaBruta`) quedaron fuera del reporte.
+
+**Pruebas**
+
+| Comando | Esperado | Resultado |
+|---|---|---|
+| `node src/reporte.js` | Todas las secciones con los valores del Día 1 | OK. Total $985.000, 21 unidades, 3 clientes recurrentes, cupón para C04, combo Origen Huila 500 g + Origen Sierra 500 g, mejor semana del día 24 al 30 ($3.670.000). Tiempo del reporte: 35,2 ms. |
+| `node src/reporte.js 100000` | Todas las secciones, en menos de 5 s | OK. Generación de datos: 84,1 ms. Tiempo del reporte: 303,3 ms. |
+| `node src/reporte.js abc` | Mensaje de uso | OK. Muestra el uso y termina. |
+
+**Comprobaciones de consistencia con 100.000 ventas:** la suma de los totales por ciudad ($19.607.639.000) coincide con el total vendido, y la suma de las unidades por producto (299.599) coincide con las unidades vendidas. Los 26.711 clientes recurrentes son ≈ 80 % de los ≈ 33.333 clientes generados.
+
+#### Error en el reporte: las ventas se modificaban al formatearlas
+
+| Campo | Detalle |
+|---|---|
+| **Síntoma** | En las secciones posteriores al resumen general, los totales de Pereira y del Origen Huila 500 g aparecen como `$NaN`. |
+| **Entrada que lo produce** | `node src/reporte.js` con los datos del Día 1: la venta mayor es la `id: 10` (Pereira, Origen Huila 500 g). |
+| **Hipótesis** | `formatearPropiedad` modifica las ventas originales: reemplaza `precio` por un texto como `"$42.000"`, y después `cantidad * precio` da `NaN`. |
+| **Prueba realizada** | Imprimir `ventas[9].precio` antes y después del resumen general: antes es `42000` (número) y después `"$42.000"` (texto). |
+| **Causa** | `ventaMayor` y `ventasDelDia` devuelven los objetos originales, y `formatearPropiedad` asigna `venta[propiedad] = ...` sobre ellos. Era un efecto secundario sobre los datos de entrada. |
+| **Corrección** | `formatearPropiedad` devuelve copias con el operador de propagación (`{ ...venta, [propiedad]: ... }`). Los datos de `ventas` no cambian al generar el reporte. |

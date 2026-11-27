@@ -329,6 +329,24 @@ function parMasCercano(catalogo, presupuesto) {
     return mejor;
 }
 
+function totalesPorDia(ventas) {
+    if (!Array.isArray(ventas)) return [];
+
+    const totales = new Map();
+    for (const venta of ventas) {
+        if (venta.cantidad <= 0) continue;
+
+        totales.set(venta.fecha, (totales.get(venta.fecha) || 0) + valorVenta(venta));
+    }
+
+    const dias = [];
+    for (let d = 1; d <= 30; d++) {
+        const fecha = "2026-09-" + String(d).padStart(2, "0");
+        dias.push(totales.get(fecha) || 0);
+    }
+    return dias;
+}
+
 module.exports = {
     primeraVenta,
     valorVenta,
@@ -354,7 +372,8 @@ module.exports = {
     primerClienteUnico,
     mejorSemanaBruta,
     mejorSemana,
-    parMasCercano
+    parMasCercano,
+    totalesPorDia
 };
 
 // console.table(totalPorCiudad([]));

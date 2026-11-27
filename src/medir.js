@@ -4,12 +4,15 @@ import {
     totalVendido, unidadesVendidas, ventaMayor, ticketPromedio, ventasPorCiudad,
     totalVendidoM, unidadesVendidasM, ventasPorCiudadM,
     totalPorCiudad, unidadesPorProducto, topProductosPorValor,
-    ventasDelDia, clientesRecurrentes,
+    ventasDelDia, clientesRecurrentes, totalesPorDia,
     totalCiudadCadena, totalCiudadUnaPasada, primeraVenta,
-    mejorSemanaBruta, mejorSemana
+    mejorSemanaBruta, mejorSemana, comboRegaloFuerzaBruta
 } from "./analitica.js";
 import { clientesRecurrentesSet, clientesRecurrentesMap } from "./optimizadas.js";
 import {ventas} from "./datos.js";
+import { performance } from "perf_hooks";
+import { generarReporte } from "./reporte.js";
+import { generarReporteV01 } from "./reporteV01.js";
 
 
 // Mediciones de número de operaciones
@@ -150,3 +153,73 @@ for (const k of [7, 1000]) {
     sumidero = mejorSemana(grandes, k);
     console.timeEnd(`deslizante k=${k}`);
 }
+
+// Mediciones de los reportes: v0.1 y v1.0
+const MEDIR_100K = true; // true: tarda ≈ 1,5 minutos por ejecución (estimación)
+
+const algoritmosOriginales = {
+    clientesRecurrentes,
+    mejorSemana: mejorSemanaBruta,
+    comboRegalo: comboRegaloFuerzaBruta,
+};
+
+// Mide solo el cálculo: se silencia la consola para no medir el dibujo de las tablas
+function sinSalida(fn) {
+    const { log, table } = console;
+    console.log = () => {};
+    console.table = () => {};
+    try {
+        fn();
+    } finally {
+        console.log = log;
+        console.table = table;
+    }
+}
+
+// La v0.1 modifica las ventas al formatearlas: cada ejecución usa una copia nueva
+function copiar(ventas) {
+    const copia = [];
+    for (const venta of ventas) copia.push({ ...venta });
+    return copia;
+}
+
+function medirReporte(ventas, correr, repeticiones, calentar = true) {
+    if (calentar) sinSalida(() => correr(copiar(ventas)));
+
+    const tiempos = [];
+    for (let r = 0; r < repeticiones; r++) {
+        const datos = copiar(ventas);          // la copia no entra en el cronómetro
+        const inicio = performance.now();
+        sinSalida(() => correr(datos));
+        tiempos.push(performance.now() - inicio);
+    }
+    tiempos.sort((a, b) => a - b);
+    return tiempos[Math.floor(tiempos.length / 2)]; // mediana, en ms
+}
+
+function medirReportes() {
+    const resultados = [];
+    for (const n of [10000, 100000]) {
+        const ventas = generarVentas(n);
+
+        const v01 = medirReporte(ventas, (d) => generarReporteV01(d), 5);
+        const v10 = medirReporte(ventas, (d) => generarReporte(d, totalesPorDia(d)), 5);
+
+        let original = null;
+        if (n <= 10000) {
+            original = medirReporte(ventas, (d) => generarReporte(d, totalesPorDia(d), algoritmosOriginales), 3);
+        } else if (MEDIR_100K) {
+            original = medirReporte(ventas, (d) => generarReporte(d, totalesPorDia(d), algoritmosOriginales), 1, false);
+        }
+
+        resultados.push({
+            n,
+            "v0.1 (ms)": v01.toFixed(1),
+            "v1.0 (ms)": v10.toFixed(1),
+            "v1.0 con algoritmos originales (ms)": original === null ? "no medido" : original.toFixed(1),
+        });
+    }
+    console.table(resultados);
+}
+
+medirReportes();
