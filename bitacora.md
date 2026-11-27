@@ -964,3 +964,171 @@ Recorrido 1 (conteo): al terminar, `conteo` = C01 → 3, C02 → 2, C03 → 2, C
 | `primerClienteUnico` | O(n²): contar las apariciones de cada cliente recorriendo todas las ventas (no implementada) | O(n) tiempo, O(c) espacio | Memoria para el `Map` |
 
 **Evidencia:** la traza de `comboRegalo` con 87.000 muestra que recorre el catálogo una sola vez y se detiene en el tercer producto (8 pares en la fuerza bruta frente a 3 productos). Sin solución recorre los 8 productos, frente a los 28 pares de la fuerza bruta. En `primerClienteUnico`, la traza del Día 1 llega a C04 en la quinta venta, tras un primer recorrido completo.
+
+## Minireto 11: La mejor racha y el presupuesto exacto
+
+### Mejor semana: fuerza bruta y ventana deslizante
+
+**Datos:** totales diarios de septiembre (30 días, en miles de pesos), `ventasDiarias` en `src/datos.js`.
+
+**Decisiones:**
+- Ambas funciones devuelven `{ inicio, total }`, con `inicio` como índice (el día de septiembre es `inicio + 1`).
+- Si `dias` no es un arreglo, o `k` es menor que 1 o mayor que el número de días, devuelven `null`.
+- Si dos semanas empatan en total, gana la primera (comparación con `>` estricto, igual en las dos versiones).
+
+#### Fuerza bruta: `mejorSemanaBruta`
+
+Suma cada bloque de `k` días desde cero y se queda con el mayor.
+
+- **Tiempo:** hay n − k + 1 bloques y cada uno suma k días, es decir, **O(n · k)**. Con `k` fijo y pequeño (7) se comporta casi como O(n), pero si `k` crece con n (por ejemplo, `k = n/2`) llega a O(n²).
+- **Espacio:** O(1).
+
+#### Ventana deslizante: `mejorSemana`
+
+Suma la primera ventana una vez. Después, en cada paso, suma el día que entra y resta el que sale, sin volver a sumar los demás.
+
+- **Tiempo:** primera ventana (k) más n − k pasos de costo constante, en total k + (n − k) = n, es decir, **O(n)**, sin importar el valor de `k`.
+- **Espacio:** O(1): solo `suma`, `mejorTotal` y `mejorInicio`.
+- **Idea:** dos ventanas consecutivas comparten k − 1 días. La fuerza bruta los vuelve a sumar; la deslizante reutiliza esa suma.
+
+#### Las tres primeras posiciones de la ventana (k = 7)
+
+```text
+día       1    2    3    4    5    6    7    8    9   10
+valor      320  410  280  390  510  620  700  300  290  450
+ventana 0 [320  410  280  390  510  620  700]                = 3230
+ventana 1      [410  280  390  510  620  700  300]           = 3210
+ventana 2           [280  390  510  620  700  300  290]      = 3090
+```
+
+| Posición | Días | Qué pasa | Total |
+|---|---|---|---|
+| 0 | 1 a 7 | Se suman los 7 días: 320 + 410 + 280 + 390 + 510 + 620 + 700 | 3230 |
+| 1 | 2 a 8 | Sale el día 1 (320), entra el día 8 (300): 3230 − 320 + 300 | 3210 |
+| 2 | 3 a 9 | Sale el día 2 (410), entra el día 9 (290): 3210 − 410 + 290 | 3090 |
+
+#### Resultado con los datos de septiembre
+
+La mejor semana empieza en el **día 24 de septiembre** (índice 23) y termina el día 30, con un total de **3.670** (miles de pesos, $3.670.000). Las dos versiones dan el mismo resultado.
+
+#### Pruebas
+
+| # | Caso | Esperado | Resultado |
+|---|---|---|---|
+| 1 | Septiembre, k = 7 | `{ inicio: 23, total: 3670 }` | OK |
+| 2 | k mayor que los días | `null` | OK |
+| 3 | k igual a los días | `{ inicio: 0, total: 6 }` | OK |
+| 4 | k = 1 | `{ inicio: 1, total: 9 }` | OK |
+| 5 | Empate: gana la primera | `{ inicio: 0, total: 10 }` | OK |
+| 6 | Arreglo vacío | `null` | OK |
+| 7 | `undefined` | `null` | OK |
+| 8 | k = 0 | `null` | OK |
+| 9 | Valores negativos | `{ inicio: 1, total: -4 }` | OK |
+| 10 | 100.000 días al azar, k = 7: ¿coinciden? | OK | OK (inicio 2460, total 5202) |
+| 11 | 100.000 días al azar, k = 1000: ¿coinciden? | OK | OK (inicio 65711, total 515035) |
+
+En los dos casos con 100.000 días al azar, la fuerza bruta y la ventana deslizante devuelven el mismo día de inicio y el mismo total.
+
+#### Comparación de tiempos con 100.000 días
+
+**Predicción (antes de medir):** con `k = 7` la fuerza bruta hace ≈ 7 veces más sumas que la deslizante; con `k = 1000`, ≈ 1000 veces más. La deslizante debería tardar lo mismo con ambos valores de `k`, y la fuerza bruta debería crecer en proporción a `k`.
+
+Tiempos medidos con `console.time`, una llamada por medición, con calentamiento previo sin cronometrar.
+
+| k | Fuerza bruta (ms) | Ventana deslizante (ms) | Veces más lenta la bruta |
+|---|---|---|---|
+| 7 | 1,917 | 0,308 | × 6,2 |
+| 1000 | 101,379 | 0,522 | × 194,2 |
+
+**Cantidad de sumas (calculada del código):**
+
+| k | Fuerza bruta | Ventana deslizante |
+|---|---|---|
+| 7 | (n − k + 1) · k = 99.994 · 7 ≈ 700.000 | ≈ n = 100.000 pasos |
+| 1000 | 99.001 · 1000 ≈ 99.000.000 | ≈ n = 100.000 pasos |
+
+**Análisis:**
+- **La ventana deslizante no depende de `k`.** Hace del orden de 100.000 pasos con cualquier `k`, y su tiempo se mantuvo en una fracción de milisegundo (0,31 ms y 0,52 ms). La diferencia entre las dos cifras es ruido de una sola llamada de menos de 1 ms.
+- **La fuerza bruta crece con `k`.** Con `k = 1000` hace ≈ 141 veces más sumas que con `k = 7`, y su tiempo se multiplicó por ≈ 53 (de 1,9 ms a 101,4 ms). Es el comportamiento de O(n · k): al aumentar `k`, aumenta el trabajo.
+- **Por qué no se multiplicó por 141 ni por 1000.** Cada suma cuesta menos cuando `k` es grande: con `k = 7` el tiempo incluye 99.994 reinicios del ciclo interno por apenas 7 sumas cada uno, y con `k = 1000` ese costo se reparte entre muchas más sumas. Dividiendo, la fuerza bruta tardó ≈ 2,7 ns por suma con `k = 7` y ≈ 1,0 ns con `k = 1000`. El motor de JavaScript también optimiza mejor un ciclo largo. Por eso el crecimiento medido es menor que el teórico, aunque va en la misma dirección.
+- **Comparación con la predicción:** se cumple en cantidad de sumas. Con `k = 7`, la fuerza bruta hace ≈ 700.000 sumas frente a ≈ 100.000 pasos de la deslizante (≈ 7 veces más). Con `k = 1000` hace ≈ 99.000.000 frente a ≈ 100.000 (≈ 990 veces más, es decir, ≈ 1000). En tiempo, la diferencia medida fue × 6,2 y × 194. El primer valor coincide con lo previsto. El segundo es menor que 990 porque cada paso de la deslizante hace más trabajo que una suma de la bruta (dos lecturas del arreglo, una suma, una resta y una comparación): ≈ 3 a 5 ns por paso, frente a ≈ 1 ns por suma en la bruta con `k = 1000`. Además, con una sola llamada de menos de 1 ms, el ruido pesa.
+- **Con `k = 7`, el valor del problema, la diferencia es pequeña en términos absolutos** (1,9 ms frente a 0,3 ms con 100.000 días). La ventaja de la deslizante se vuelve decisiva cuando `k` es grande.
+- **Limitación:** cada valor es una sola llamada y los tiempos de la deslizante son menores que 1 ms, así que las cifras varían entre ejecuciones. Las conclusiones (cuál es más rápida y cómo escala cada una) no dependen de esa variación.
+
+### Par más cercano al presupuesto: `parMasCercano`
+
+**Qué hace:** dado un presupuesto, devuelve los dos productos cuya suma de precios es la mayor posible sin superarlo.
+
+**Decisiones:**
+- Recibe el catálogo completo (objetos `{ producto, precio }`) y devuelve `[más barato, más caro]`.
+- Ordena una **copia** del catálogo con `[...catalogo].sort((a, b) => a.precio - b.precio)`, para no modificar el original. El `sort` necesita la función de comparación porque por defecto ordena como texto, y con números daría un orden incorrecto.
+- Devuelve `null` si no hay ningún par que quepa en el presupuesto, si el catálogo tiene menos de 2 productos o si la entrada no es válida.
+
+**Por qué no basta un `Map` como en `comboRegalo`:** el `Map` encuentra un complemento **exacto** (valor − precio). Aquí se busca la suma más cercana por debajo, y eso exige un orden entre los precios. Por eso se ordena y se usan dos punteros.
+
+**Estrategia:** dos punteros desde los extremos del arreglo ordenado. `izq` apunta al más barato y `der` al más caro.
+- Si la suma **supera** el presupuesto, el de la derecha es demasiado caro incluso con el más barato que queda: ningún par con él sirve, y `der` retrocede.
+- Si la suma **cabe**, el de la derecha es el mayor compañero posible para el de la izquierda (con otro más barato sumaría menos). Se guarda el par si mejora la mejor suma, y `izq` avanza.
+
+#### Catálogo ordenado por precio
+
+| Posición | Producto | Precio |
+|---|---|---|
+| 0 | Filtros de papel x100 | 18.000 |
+| 1 | Origen Nariño 250 g | 26.000 |
+| 2 | Taza de cerámica | 35.000 |
+| 3 | Origen Huila 500 g | 42.000 |
+| 4 | Origen Sierra 500 g | 45.000 |
+| 5 | Origen Huila 1 kg | 79.000 |
+| 6 | Prensa francesa | 95.000 |
+| 7 | Molino manual | 120.000 |
+
+#### Traza de los punteros para un presupuesto de 100.000
+
+| Paso | `izq` | `der` | Par | Suma | ¿Supera 100.000? | Qué se mueve | Por qué | Mejor suma |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 0 | 7 | Filtros (18.000) + Molino (120.000) | 138.000 | Sí | `der` → 6 | Ni con el producto más barato cabe el Molino: no puede formar pareja con nadie. | - |
+| 2 | 0 | 6 | Filtros (18.000) + Prensa (95.000) | 113.000 | Sí | `der` → 5 | Igual con la Prensa francesa. | - |
+| 3 | 0 | 5 | Filtros (18.000) + Huila 1 kg (79.000) | 97.000 | No | `izq` → 1 | Cabe, y el Huila 1 kg es el mayor compañero posible para los Filtros. Se guarda y se descartan los Filtros. | **97.000** |
+| 4 | 1 | 5 | Nariño (26.000) + Huila 1 kg (79.000) | 105.000 | Sí | `der` → 4 | El Huila 1 kg es demasiado caro incluso con el Nariño, el más barato que queda. | 97.000 |
+| 5 | 1 | 4 | Nariño (26.000) + Sierra (45.000) | 71.000 | No | `izq` → 2 | Cabe, pero 71.000 no mejora 97.000. La Sierra es el mayor compañero posible para el Nariño. | 97.000 |
+| 6 | 2 | 4 | Taza (35.000) + Sierra (45.000) | 80.000 | No | `izq` → 3 | Cabe, pero no mejora. | 97.000 |
+| 7 | 3 | 4 | Huila 500 g (42.000) + Sierra (45.000) | 87.000 | No | `izq` → 4 | Cabe, pero no mejora. | 97.000 |
+| Fin | 4 | 4 | - | - | - | - | `izq` alcanzó a `der`: no quedan pares. | - |
+
+**Resultado:** Filtros de papel x100 + Origen Huila 1 kg, con 97.000 (no supera 100.000). El ciclo hizo 7 pasos, uno menos que los 8 productos.
+
+**Otros presupuestos:**
+- **140.000:** el primer par que cabe (Filtros + Molino) suma 138.000 y se guarda, pero más adelante Sierra + Prensa suma 140.000 y lo reemplaza. Devuelve Origen Sierra 500 g + Prensa francesa (suma exacta).
+- **40.000:** el par más barato (Filtros + Nariño) ya suma 44.000, así que `der` retrocede hasta cruzarse con `izq`. Devuelve `null`.
+
+#### Pruebas
+
+| # | Caso | Esperado | Resultado |
+|---|---|---|---|
+| 1 | Presupuesto 100.000 | Filtros de papel x100 + Origen Huila 1 kg | OK |
+| 2 | Presupuesto 140.000 (suma exacta) | Origen Sierra 500 g + Prensa francesa | OK |
+| 3 | Presupuesto 40.000 (sin solución) | `null` | OK |
+| 4 | Presupuesto 87.000 (suma exacta) | Origen Huila 500 g + Origen Sierra 500 g | OK |
+| 5 | Presupuesto enorme (1.000.000) | Prensa francesa + Molino manual | OK |
+| 6 | Presupuesto 0 | `null` | OK |
+| 7 | Catálogo vacío | `null` | OK |
+| 8 | Un solo producto | `null` | OK |
+| 9 | `undefined` | `null` | OK |
+| 10 | Precios repetidos | A + B | OK |
+| - | Comparación con fuerza bruta (501 presupuestos de 0 a 250.000): la suma coincide y nunca supera el presupuesto | OK | OK |
+| - | Catálogo sin modificar | OK | OK |
+
+Con los presupuestos de la consigna: 100.000 devuelve Filtros de papel x100 + Origen Huila 1 kg (97.000), 140.000 devuelve Origen Sierra 500 g + Prensa francesa (140.000, suma exacta) y 40.000 devuelve `null`.
+
+### Clasificación de complejidad: ventana deslizante y dos punteros
+
+| Función | Tiempo | Espacio | Justificación (basada en el código) |
+|---|---|---|---|
+| `mejorSemanaBruta` | O(n · k) | O(1) | Hay n − k + 1 bloques y cada uno suma k días con un ciclo interno. Si `k` crece con n, llega a O(n²). |
+| `mejorSemana` | O(n) | O(1) | Suma la primera ventana (k pasos) y luego hace n − k pasos de costo constante (entra un día, sale otro): k + (n − k) = n, sin importar `k`. Solo usa tres variables. |
+| `parMasCercano` | **O(n log n)** | O(n) | Ordenar la copia cuesta O(n log n); el recorrido con dos punteros cuesta O(n) (en cada paso un puntero avanza, como máximo n − 1 pasos). n log n + n se simplifica a O(n log n): el ordenamiento domina. La copia del arreglo ocupa O(n). |
+
+**Por qué `mejorSemana` es O(n):** no hay ciclos anidados. La fuerza bruta vuelve a sumar los k − 1 días que dos ventanas consecutivas comparten; la ventana deslizante los reutiliza, y por eso desaparece el factor `k`. Con 100.000 días tardó 0,31 ms con `k = 7` y 0,52 ms con `k = 1000`, frente a 1,9 ms y 101,4 ms de la fuerza bruta.
+
+**Por qué `parMasCercano` es O(n log n) y no O(n):** el recorrido con dos punteros es lineal, pero solo funciona si los precios están ordenados, y ordenar tiene un costo de O(n log n) que es mayor que el recorrido. Si el catálogo ya viniera ordenado, la función sería O(n) (más la copia). La alternativa por fuerza bruta, probar todos los pares, es O(n²).

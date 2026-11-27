@@ -1,4 +1,4 @@
-const {ventas} = require("./datos");
+const {ventas, ventasDiarias} = require("./datos");
 const generarVentas = require("./generador");
 const {
     totalVendido,
@@ -14,7 +14,10 @@ const {
     totalCiudadUnaPasada,
     clientesRecurrentes,
     productoEstrellaPorCiudad,
-    primerClienteUnico
+    primerClienteUnico,
+    mejorSemanaBruta,
+    mejorSemana,
+    parMasCercano
 } = require("./analitica");
 const { clientesRecurrentesSet, clientesRecurrentesMap, comprasPorCliente } = require("./optimizadas");
 // Restricción: no modifica ventas
@@ -203,3 +206,92 @@ for (const [nombre, entrada, esperado] of casosClienteUnico) {
 
 primerClienteUnico(ventas);
 console.log(`ventas sin modificar: ${JSON.stringify(ventas) === antes ? "OK" : "FALLA"}`);
+
+
+// Mejor semana
+//---------------------------------------------------------
+console.log("\n","---------- Pruebas Mejor Semana: Ventana vs Fuerza Bruta ----------")
+const casosMejorSemana = [
+    ["1. Septiembre, k = 7", ventasDiarias, 7, { inicio: 23, total: 3670 }],
+    ["2. k mayor que los días", [1, 2, 3], 4, null],
+    ["3. k igual a los días", [1, 2, 3], 3, { inicio: 0, total: 6 }],
+    ["4. k = 1", [4, 9, 2], 1, { inicio: 1, total: 9 }],
+    ["5. Empate: gana la primera", [5, 5, 5, 5], 2, { inicio: 0, total: 10 }],
+    ["6. Arreglo vacío", [], 3, null],
+    ["7. undefined", undefined, 3, null],
+    ["8. k = 0", [1, 2, 3], 0, null],
+    ["9. Valores negativos", [-5, -1, -3, -2], 2, { inicio: 1, total: -4 }],
+];
+
+for (const [nombre, dias, k, esperado] of casosMejorSemana) {
+    const bruta = JSON.stringify(mejorSemanaBruta(dias, k));
+    const desliz = JSON.stringify(mejorSemana(dias, k));
+    const ok = bruta === JSON.stringify(esperado) && desliz === JSON.stringify(esperado);
+    console.log(`${nombre}: ${ok ? "OK" : "FALLA"}`);
+    if (!ok) console.log(`   bruta: ${bruta}, deslizante: ${desliz}, esperado: ${JSON.stringify(esperado)}`);
+}
+
+// 100.000 días al azar (ventas entre 200 y 800, como en septiembre)
+function diasAlAzar(n) {
+    const dias = [];
+    for (let i = 0; i < n; i++) dias.push(200 + Math.floor(Math.random() * 601));
+    return dias;
+}
+
+const grandes = diasAlAzar(100000);
+for (const k of [7, 1000]) {
+    const a = mejorSemanaBruta(grandes, k);
+    const b = mejorSemana(grandes, k);
+    const igual = a.inicio === b.inicio && a.total === b.total;
+    console.log(`100.000 días, k = ${k}: ${igual ? "OK" : "DIFERENTE"} (inicio ${b.inicio}, total ${b.total})`);
+}
+
+// Par más cercano
+//---------------------------------------------------------
+console.log("\n","---------- Pruebas Par Más Cercano ----------")
+
+const casosParCercano = [
+    ["1. Presupuesto 100.000", catalogo, 100000, "Filtros de papel x100 + Origen Huila 1 kg"],
+    ["2. Presupuesto 140.000 (suma exacta)", catalogo, 140000, "Origen Sierra 500 g + Prensa francesa"],
+    ["3. Presupuesto 40.000 (sin solución)", catalogo, 40000, null],
+    ["4. Presupuesto 87.000 (suma exacta)", catalogo, 87000, "Origen Huila 500 g + Origen Sierra 500 g"],
+    ["5. Presupuesto enorme", catalogo, 1000000, "Prensa francesa + Molino manual"],
+    ["6. Presupuesto 0", catalogo, 0, null],
+    ["7. Catálogo vacío", [], 100000, null],
+    ["8. Un solo producto", [catalogo[0]], 100000, null],
+    ["9. undefined", undefined, 100000, null],
+    ["10. Precios repetidos", [{ producto: "A", precio: 10 }, { producto: "B", precio: 10 }], 20, "A + B"],
+];
+
+for (const [nombre, datos, presupuesto, esperado] of casosParCercano) {
+    const obtenido = nombres(parMasCercano(datos, presupuesto));
+    console.log(`${nombre}: ${obtenido === esperado ? "OK" : "FALLA"}`);
+    if (obtenido !== esperado) console.log(`   obtenido: ${obtenido}, esperado: ${esperado}`);
+}
+
+// Comparación con fuerza bruta: la mejor suma debe coincidir y nunca superar el presupuesto
+function mejorSumaBruta(datos, presupuesto) {
+    let mejor = null;
+    for (let i = 0; i < datos.length; i++) {
+        for (let j = i + 1; j < datos.length; j++) {
+            const suma = datos[i].precio + datos[j].precio;
+            if (suma <= presupuesto && (mejor === null || suma > mejor)) mejor = suma;
+        }
+    }
+    return mejor;
+}
+
+let coincide = true;
+for (let presupuesto = 0; presupuesto <= 250000; presupuesto += 500) {
+    const par = parMasCercano(catalogo, presupuesto);
+    const obtenida = par ? par[0].precio + par[1].precio : null;
+    if (obtenida !== mejorSumaBruta(catalogo, presupuesto)) {
+        coincide = false;
+        console.log(`   falla con presupuesto ${presupuesto}`);
+    }
+}
+console.log(`Comparación con fuerza bruta (501 presupuestos): ${coincide ? "OK" : "FALLA"}`);
+
+const antesCatalogo = JSON.stringify(catalogo);
+parMasCercano(catalogo, 100000);
+console.log(`catálogo sin modificar: ${JSON.stringify(catalogo) === antesCatalogo ? "OK" : "FALLA"}`);

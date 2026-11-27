@@ -6,6 +6,7 @@ import {
     totalPorCiudad, unidadesPorProducto, topProductosPorValor,
     ventasDelDia, clientesRecurrentes,
     totalCiudadCadena, totalCiudadUnaPasada, primeraVenta,
+    mejorSemanaBruta, mejorSemana
 } from "./analitica.js";
 import { clientesRecurrentesSet, clientesRecurrentesMap } from "./optimizadas.js";
 import {ventas} from "./datos.js";
@@ -91,9 +92,9 @@ const pruebas = [
 ];
 
 const resultados = [];
-for (const [nombre, fn, repeticiones] of pruebas) {
-    resultados.push({ funcion: nombre, "ms por llamada": medir(fn, repeticiones).toFixed(4) });
-}
+// for (const [nombre, fn, repeticiones] of pruebas) {
+//     resultados.push({ funcion: nombre, "ms por llamada": medir(fn, repeticiones).toFixed(4) });
+// }
 
 console.log("2. Todas las funciones con 10.000 ventas")
 console.table(resultados);
@@ -128,3 +129,24 @@ for (const n of numeros3) {
     cronometrar(`Map ${n} ventas`, () => clientesRecurrentesMap(datos), 1);
 }
 
+// Mediciones de mejorSemana
+console.log("\n","4. Las 2 versiones de mejorSemana")
+function diasAlAzar(n) {
+    const dias = [];
+    for (let i = 0; i < n; i++) dias.push(200 + Math.floor(Math.random() * 601));
+    return dias;
+}
+
+const grandes = diasAlAzar(100000);
+for (const k of [7, 1000]) {
+    sumidero = mejorSemanaBruta(grandes, k); // calentamiento, no se cronometra
+    sumidero = mejorSemana(grandes, k);
+
+    console.time(`bruta k=${k}`);
+    sumidero = mejorSemanaBruta(grandes, k);
+    console.timeEnd(`bruta k=${k}`);
+
+    console.time(`deslizante k=${k}`);
+    sumidero = mejorSemana(grandes, k);
+    console.timeEnd(`deslizante k=${k}`);
+}

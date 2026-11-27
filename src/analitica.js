@@ -265,6 +265,70 @@ function primerClienteUnico(ventas) {
     return null;
 }
 
+// mejorSemana
+function mejorSemanaBruta(dias, k) {
+    if (!Array.isArray(dias) || !Number.isInteger(k) || k < 1 || k > dias.length) return null;
+
+    let mejorTotal = -Infinity;
+    let mejorInicio = -1;
+    for (let inicio = 0; inicio + k <= dias.length; inicio++) {
+        let suma = 0;
+        for (let i = inicio; i < inicio + k; i++) suma += dias[i];
+
+        if (suma > mejorTotal) {
+            mejorTotal = suma;
+            mejorInicio = inicio;
+        }
+    }
+    return { inicio: mejorInicio, total: mejorTotal };
+}
+
+function mejorSemana(dias, k) {
+    if (!Array.isArray(dias) || !Number.isInteger(k) || k < 1 || k > dias.length) return null;
+
+    let suma = 0;
+    for (let i = 0; i < k; i++) suma += dias[i];
+
+    let mejorTotal = suma;
+    let mejorInicio = 0;
+
+    for (let i = k; i < dias.length; i++) {
+        suma += dias[i] - dias[i - k];
+        if (suma > mejorTotal) {
+            mejorTotal = suma;
+            mejorInicio = i - k + 1;
+        }
+    }
+    return { inicio: mejorInicio, total: mejorTotal };
+}
+
+// par más cercano
+function parMasCercano(catalogo, presupuesto) {
+    if (!Array.isArray(catalogo) || catalogo.length < 2 || !Number.isFinite(presupuesto)) return null;
+
+    const ordenado = [...catalogo].sort((a, b) => a.precio - b.precio);
+
+    let izq = 0;
+    let der = ordenado.length - 1;
+    let mejor = null;
+    let mejorSuma = -Infinity;
+
+    while (izq < der) {
+        const suma = ordenado[izq].precio + ordenado[der].precio;
+
+        if (suma > presupuesto) {
+            der--;          // el de la derecha es demasiado caro: se descarta
+        } else {
+            if (suma > mejorSuma) {
+                mejorSuma = suma;
+                mejor = [ordenado[izq], ordenado[der]];
+            }
+            izq++;          // con este de la izquierda no se puede mejorar: se avanza
+        }
+    }
+    return mejor;
+}
+
 module.exports = {
     primeraVenta,
     valorVenta,
@@ -287,7 +351,10 @@ module.exports = {
     comboRegaloFuerzaBruta,
     comboRegalo,
     productoEstrellaPorCiudad,
-    primerClienteUnico
+    primerClienteUnico,
+    mejorSemanaBruta,
+    mejorSemana,
+    parMasCercano
 };
 
 // console.table(totalPorCiudad([]));
