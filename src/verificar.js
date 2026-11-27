@@ -12,10 +12,13 @@ const {
     topProductosPorValor,
     totalCiudadCadena,
     totalCiudadUnaPasada,
-    clientesRecurrentes
+    clientesRecurrentes,
+    productoEstrellaPorCiudad,
+    primerClienteUnico
 } = require("./analitica");
 const { clientesRecurrentesSet, clientesRecurrentesMap, comprasPorCliente } = require("./optimizadas");
-
+// Restricción: no modifica ventas
+const antes = JSON.stringify(ventas);
 const desde = (...clientes) => clientes.map((cliente) => ({ cliente }));
 const ordenados = (lista) => JSON.stringify([...lista].sort());
 const sinRepetidos = (lista) => new Set(lista).size === lista.length;
@@ -75,7 +78,6 @@ for (const [nombre, entrada, esperado] of casos) {
 }
 
 // Restricción: no modifica ventas
-const antes = JSON.stringify(ventas);
 clientesRecurrentesSet(ventas);
 console.log(`ventas sin modificar: ${JSON.stringify(ventas) === antes ? "OK" : "FALLA"}`);
 
@@ -91,7 +93,7 @@ function compararTres(nombre, datos) {
     const mapIgual = ordenados(original) === ordenados(conMap);
     const sinDuplicados = sinRepetidos(original) && sinRepetidos(conSet) && sinRepetidos(conMap);
     const estado = setIgual && mapIgual && sinDuplicados ? "OK" : "DIFERENTE";
-
+    
     console.log(`${nombre}: ${estado} (original: ${original.length}, Set: ${conSet.length}, Map: ${conMap.length} clientes)`);
     console.log(`   mismo orden que el original -> Set: ${JSON.stringify(original) === JSON.stringify(conSet)}, Map: ${JSON.stringify(original) === JSON.stringify(conMap)}`);
 }
@@ -113,3 +115,91 @@ const datos = generarVentas(5000);
 let suma = 0;
 for (const cantidad of comprasPorCliente(datos).values()) suma += cantidad;
 console.log(`comprasPorCliente: suma de compras = ${suma} (${suma === datos.length ? "OK" : "DIFERENTE"})`);
+
+
+// Pruebas combo regalo: Optimizada vs Bruta
+//---------------------------------------------------------
+console.log("\n","---------- Pruebas combo regalo: Optimizada vs Fuerza Bruta ----------")
+const { catalogo } = require("./catalogo");
+const { comboRegaloFuerzaBruta, comboRegalo } = require("./analitica");
+
+const nombres = (par) => (par ? par.map((p) => p.producto).join(" + ") : null);
+const sumar = (par) => par[0].precio + par[1].precio;
+
+function probarCombo(valor) {
+    const bruta = comboRegaloFuerzaBruta(catalogo, valor);
+    const optimizada = comboRegalo(catalogo, valor);
+    
+    const ambasNull = bruta === null && optimizada === null;
+    const ambasValidas = bruta !== null && optimizada !== null
+    && sumar(bruta) === valor && sumar(optimizada) === valor
+    && bruta[0] !== bruta[1] && optimizada[0] !== optimizada[1];
+
+    console.log(`${valor}: ${ambasNull || ambasValidas ? "OK" : "DIFERENTE"}`);
+    console.log(`   fuerza bruta: ${nombres(bruta)}`);
+    console.log(`   optimizada:   ${nombres(optimizada)}`);
+}
+
+for (const valor of [87000, 61000, 100000, 84000, 121000]) probarCombo(valor);
+
+console.log(comboRegalo([], 87000));        // null (catálogo vacío)
+console.log(comboRegalo(undefined, 87000)); // null (entrada inválida)
+
+// Producto estrella por ciudad
+//---------------------------------------------------------
+console.log("\n","---------- Pruebas combo regalo: Optimizada vs Fuerza Bruta ----------")
+const v = (ciudad, producto, cantidad = 1) => ({ ciudad, producto, cantidad });
+
+const casosProductosEst = [
+    ["1. Arreglo vacío", [], {}],
+    ["2. undefined", undefined, {}],
+    ["3. Datos del Día 1", ventas, {
+        medellin: { producto: "Origen Huila 500 g", veces: 2 },
+        bogota: { producto: "Origen Nariño 250 g", veces: 3 },
+        cali: { producto: "Prensa francesa", veces: 1 },
+        pereira: { producto: "Origen Huila 500 g", veces: 1 },
+    }],
+    ["4. Empate simple", [v("Cali", "A"), v("Cali", "B")], { cali: { producto: "A", veces: 1 } }],
+    ["5. Empate: gana el primero en aparecer", [v("Cali", "B"), v("Cali", "A"), v("Cali", "A"), v("Cali", "B")],
+    { cali: { producto: "B", veces: 2 } }],
+    ["6. Ciudades normalizadas", [v("Bogotá", "A"), v("Bogotá ", "A"), v("bogota", "A")],
+    { bogota: { producto: "A", veces: 3 } }],
+    ["7. Solo ventas con cantidad 0", [v("Cali", "A", 0)], {}],
+];
+
+for (const [nombre, entrada, esperado] of casosProductosEst) {
+    const obtenido = productoEstrellaPorCiudad(entrada);
+    const ok = JSON.stringify(obtenido) === JSON.stringify(esperado);
+    console.log(`${nombre}: ${ok ? "OK" : "FALLA"}`);
+    if (!ok) console.log("   obtenido:", JSON.stringify(obtenido));
+}
+
+productoEstrellaPorCiudad(ventas);
+console.log(`ventas sin modificar: ${JSON.stringify(ventas) === antes ? "OK" : "FALLA"}`);
+
+
+// Primer Cliente Único
+//---------------------------------------------------------
+console.log("\n","---------- Pruebas de primerClienteUnico() ----------")
+const c = (cliente, cantidad = 1) => ({ cliente, cantidad });
+
+const casosClienteUnico = [
+    ["1. Arreglo vacío", [], null],
+    ["2. undefined", undefined, null],
+    ["3. Datos del Día 1", ventas, "C04"],
+    ["4. Nadie es único", [c("C01"), c("C01")], null],
+    ["5. Todos únicos", [c("C01"), c("C02")], "C01"],
+    ["6. Repetidos antes del único", [c("C01"), c("C02"), c("C01")], "C02"],
+    ["7. El único es la última venta", [c("C01"), c("C01"), c("C02")], "C02"],
+    ["8. Cantidad 0 no cuenta como compra", [c("C01"), c("C01", 0), c("C02")], "C01"],
+    ["9. Solo ventas con cantidad 0", [c("C01", 0)], null],
+];
+
+for (const [nombre, entrada, esperado] of casosClienteUnico) {
+    const obtenido = primerClienteUnico(entrada);
+    console.log(`${nombre}: ${obtenido === esperado ? "OK" : "FALLA"}`);
+    if (obtenido !== esperado) console.log(`   obtenido: ${obtenido}, esperado: ${esperado}`);
+}
+
+primerClienteUnico(ventas);
+console.log(`ventas sin modificar: ${JSON.stringify(ventas) === antes ? "OK" : "FALLA"}`);

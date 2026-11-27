@@ -799,3 +799,168 @@ Aquí c es el número de clientes distintos y m el de clientes recurrentes (m �
 **Qué se paga:** la memoria pasa de O(m) a O(c). `vistos` guarda cada cliente distinto, aunque nunca llegue a repetir. Con `generarVentas`, el número de clientes ronda n/3, así que con 100.000 ventas son unas 30.000 entradas en `vistos`. Es una cantidad pequeña para un equipo actual. Este dato sale del análisis, no de una medición de memoria.
 
 **Qué se gana:** el tiempo pasa de crecer con el cuadrado de n a crecer en línea. Con 10.000 ventas, `Set` es unas 800 veces más rápida que la original. Con 100.000 ventas, `Set` tardó 17,2 ms, cuando la original tardaría del orden de 86 segundos (estimación, no medida).
+
+## Minireto 10: Combos de regalo y frecuencias
+### Combos de regalo: `comboRegalo`
+
+#### Catálogo
+
+El catálogo se representa como un arreglo de 8 objetos `{ producto, precio }` en `src/catalogo.js`.
+
+#### Fuerza bruta: `comboRegaloFuerzaBruta`
+
+Prueba todos los pares de productos (`i < j`) y devuelve el primero cuya suma de precios es igual al valor.
+
+- **Tiempo:** O(n²). En el peor caso (no hay combinación) revisa n(n − 1) / 2 pares: con 8 productos, 28.
+- **Espacio:** O(1). Solo usa los índices `i` y `j`.
+- Con 87.000 encuentra la combinación tras revisar 8 pares: los 7 del primer producto y luego (Huila 500 g, Sierra 500 g).
+
+#### Versión optimizada: `comboRegalo`
+
+**Idea:** el producto con precio `p` necesita un complemento de precio `valor − p`. En lugar de buscarlo recorriendo el catálogo, se guarda en un `Map` (precio → producto) cada producto ya visto. Para cada producto se pregunta si su complemento ya apareció.
+
+- **Tiempo:** O(n). Un solo recorrido; `has`, `get` y `set` del `Map` cuestan O(1) en promedio.
+- **Espacio:** O(n). El `Map` guarda hasta n − 1 productos.
+- **Distintos:** la consulta se hace antes de guardar el producto, así que un producto no se empareja consigo mismo.
+- **Intercambio:** igual que en `clientesRecurrentes`, se gasta memoria (el `Map`) para eliminar el segundo ciclo.
+
+| | Fuerza bruta | Optimizada |
+|---|---|---|
+| Tiempo | O(n²) | O(n) |
+| Espacio | O(1) | O(n) |
+| Pares o productos revisados para 87.000 | 8 pares | 3 productos |
+| Revisados sin solución (n = 8) | 28 pares | 8 productos |
+
+#### Pruebas
+
+| Valor | Resultado esperado | Fuerza bruta | Optimizada | Resultado |
+|---|---|---|---|---|
+| 87.000 | Huila 500 g + Sierra 500 g | Huila 500 g + Sierra 500 g | Huila 500 g + Sierra 500 g | OK |
+| 61.000 | Nariño 250 g + Taza de cerámica | Nariño 250 g + Taza de cerámica | Nariño 250 g + Taza de cerámica | OK |
+| 100.000 | `null` (ningún par suma ese valor) | `null` | `null` | OK |
+| 84.000 | `null` (solo se lograría repitiendo el Huila 500 g) | `null` | `null` | OK |
+| 121.000 | Varias soluciones válidas | Nariño 250 g + Prensa francesa | Huila 500 g + Huila 1 kg | OK |
+| Catálogo vacío | `null` | - | `null` | OK |
+| `undefined` | `null` | - | `null` | OK |
+
+Con 121.000 hay dos combinaciones válidas (Nariño 250 g + Prensa francesa, y Huila 500 g + Huila 1 kg). Cada versión devuelve la primera que encuentra con su propio orden de búsqueda: la fuerza bruta prueba pares en orden y encuentra primero el del Nariño 250 g, y la optimizada llega al Huila 1 kg y encuentra su complemento (el Huila 500 g) ya visto. Ambos pares suman 121.000, y por eso la prueba valida la suma y no que el par sea idéntico.
+
+Con 87.000 y con 61.000, que solo tienen una combinación, las dos versiones devuelven el mismo par.
+
+#### Traza de `comboRegalo(catalogo, 87000)`
+
+| Paso | Producto `p` | Precio | `falta = 87000 − precio` | ¿`vistos` tiene `falta`? | `vistos` después |
+|---|---|---|---|---|---|
+| Inicio | - | - | - | - | vacío |
+| 1 | Origen Nariño 250 g | 26.000 | 61.000 | No | 26.000 → Nariño 250 g |
+| 2 | Origen Huila 500 g | 42.000 | 45.000 | No | 26.000, 42.000 → Huila 500 g |
+| 3 | Origen Sierra 500 g | 45.000 | 42.000 | **Sí** | no se agrega: la función termina |
+| Fin | - | - | - | - | **Devuelve `[Origen Huila 500 g, Origen Sierra 500 g]`** |
+
+La función recorre el catálogo una sola vez y se detiene en el tercer producto. Los 5 productos restantes ni se visitan.
+
+### `productoEstrellaPorCiudad`
+
+**Qué hace:** devuelve, para cada ciudad, el producto que más veces aparece en sus ventas, junto con ese número de apariciones.
+
+**Decisiones:**
+- Se cuentan **apariciones** (cada venta suma 1), no unidades. Es lo que pide la consigna.
+- Se descartan las ventas con `cantidad <= 0`, igual que en el resto del motor. Una ciudad cuyas únicas ventas tienen cantidad 0 no aparece en el resultado.
+- Las ciudades se normalizan (`normalizar`), así que `"Bogotá"`, `"Bogotá "` y `"bogota"` son la misma.
+- **Regla de desempate:** si dos productos tienen la misma cantidad de apariciones en una ciudad, gana el que **apareció primero en las ventas de esa ciudad**. Se logra porque el `Map` conserva el orden de inserción y la comparación es `>` estricto. Con los datos del Día 1, esta regla decide Cali (Prensa francesa frente a Origen Sierra 500 g, ambas con 1 aparición).
+- Entrada inválida (`undefined`) o arreglo vacío: devuelve `{}`.
+
+**Estrategia:** conteo de frecuencias con un `Map` por ciudad (ciudad → Map(producto → veces)), y luego una búsqueda del máximo dentro de cada `Map`.
+
+**Preguntas de la sesión:**
+
+| Función | ¿Qué recorro? | ¿Qué filtro? | ¿Qué transformo? | ¿Qué acumulo? | ¿Cómo agrupo? |
+|---|---|---|---|---|---|
+| `productoEstrellaPorCiudad` | Todas las ventas; después los `Map` de cada ciudad | Descarto `cantidad <= 0` | La ciudad a texto normalizado | Las apariciones de cada producto, y el máximo de cada ciudad | `Map` por ciudad, con otro `Map` por producto |
+
+**Complejidad:**
+- **Tiempo O(n):** el primer ciclo visita cada venta una vez, y `has`, `get` y `set` del `Map` cuestan O(1) en promedio. El segundo ciclo recorre las entradas de todos los `Map`, que en total son como máximo n (una por cada par ciudad-producto distinto). Total: n + n, que se simplifica a O(n).
+- **Espacio O(k):** k es el número de pares (ciudad, producto) distintos, con k ≤ n. En la práctica es pequeño: con 4 ciudades y 8 productos, como máximo 32 entradas. El resultado ocupa O(c), una entrada por ciudad.
+
+**Pruebas:**
+
+| # | Caso | Resultado |
+|---|---|---|
+| 1 | Arreglo vacío | OK |
+| 2 | `undefined` | OK |
+| 3 | Datos del Día 1 | OK |
+| 4 | Empate simple | OK |
+| 5 | Empate: gana el primero en aparecer | OK |
+| 6 | Ciudades normalizadas | OK |
+| 7 | Solo ventas con cantidad 0 | OK |
+| - | `ventas` sin modificar | OK |
+
+### `primerClienteUnico`
+
+**Qué hace:** devuelve el primer cliente, en el orden de las ventas, que aparece una sola vez en todo el historial. Es el destinatario del cupón de regreso.
+
+**Decisiones:**
+- Se descartan las ventas con `cantidad <= 0`: una venta sin unidades no es una compra. Un cliente con una venta válida y otra de cantidad 0 cuenta como cliente de una sola compra.
+- Devuelve el id del cliente, o `null` si ningún cliente tiene una sola compra, o si `ventas` está vacío o no es un arreglo.
+
+**Estrategia:** dos recorridos y un `Map`. En el primero se cuentan las compras de cada cliente. En el segundo se recorren las ventas en orden y se devuelve el primer cliente cuyo conteo sea 1. Hacen falta dos recorridos porque, al ver un cliente por primera vez, aún no se sabe si volverá a aparecer.
+
+**Preguntas de la sesión:**
+
+| Función | ¿Qué recorro? | ¿Qué filtro? | ¿Qué transformo? | ¿Qué acumulo? | ¿Cómo agrupo? |
+|---|---|---|---|---|---|
+| `primerClienteUnico` | Todas las ventas, dos veces | Descarto `cantidad <= 0` en ambos recorridos | Nada: la clave es el cliente | Las compras de cada cliente | `Map` con clave = cliente |
+
+**Complejidad:**
+- **Tiempo O(n):** el primer recorrido visita las n ventas; el segundo, como máximo n más, y `get` y `set` del `Map` cuestan O(1) en promedio. Total: n + n, que se simplifica a O(n). El segundo recorrido se detiene en el primer cliente único, así que normalmente termina antes.
+- **Espacio O(c):** el `Map` guarda una entrada por cliente distinto, c ≤ n.
+- **Alternativa de fuerza bruta (no implementada):** para cada venta, contar cuántas veces aparece su cliente en todo el arreglo sería O(n²). El `Map` evita volver a recorrer las ventas cada vez, a cambio de O(c) de memoria.
+
+**Traza con los datos del Día 1:**
+
+Recorrido 1 (conteo): al terminar, `conteo` = C01 → 3, C02 → 2, C03 → 2, C04 → 1, C05 → 1, C07 → 1, C08 → 1. La venta `id: 8` (C06) se descarta por tener cantidad 0.
+
+| Paso | Venta (id) | Cliente | `conteo.get(cliente)` | ¿Es 1? |
+|---|---|---|---|---|
+| 1 | 1 | C01 | 3 | No |
+| 2 | 2 | C02 | 2 | No |
+| 3 | 3 | C03 | 2 | No |
+| 4 | 4 | C01 | 3 | No |
+| 5 | 5 | C04 | 1 | **Sí: devuelve `"C04"`** |
+
+**Pruebas**
+
+| # | Caso | Esperado | Resultado |
+|---|---|---|---|
+| 1 | Arreglo vacío | `null` | OK |
+| 2 | `undefined` | `null` | OK |
+| 3 | Datos del Día 1 | `"C04"` | OK |
+| 4 | Nadie es único | `null` | OK |
+| 5 | Todos únicos | `"C01"` | OK |
+| 6 | Repetidos antes del único | `"C02"` | OK |
+| 7 | El único es la última venta | `"C02"` | OK |
+| 8 | Cantidad 0 no cuenta como compra | `"C01"` | OK |
+| 9 | Solo ventas con cantidad 0 | `null` | OK |
+| - | `ventas` sin modificar | - | OK |
+
+### Clasificación de complejidad: combos y frecuencias
+
+| Función | Tiempo | Espacio | Justificación (basada en el código) |
+|---|---|---|---|
+| `comboRegalo` | O(n) | O(n) | Un solo `for...of` sobre el catálogo. En cada vuelta, `has`, `get` y `set` del `Map` cuestan O(1) en promedio, así que cada producto cuesta una cantidad fija de trabajo. El `Map` guarda hasta n − 1 productos. |
+| `productoEstrellaPorCiudad` | O(n) | O(k) | El primer ciclo visita cada venta una vez, con operaciones de `Map` de O(1). El segundo recorre las entradas de todos los `Map`, que en total son como máximo n. Total n + n = O(n). El espacio es k, el número de pares (ciudad, producto) distintos, con k ≤ n. |
+| `primerClienteUnico` | O(n) | O(c) | Dos recorridos secuenciales de las ventas (no anidados): n + n = O(n). El `Map` guarda un conteo por cliente distinto (c ≤ n). El segundo recorrido se detiene en el primer cliente único. |
+
+**Por qué las tres son O(n):**
+- Ninguna tiene ciclos anidados que dependan de n. Los ciclos que aparecen se ejecutan uno después de otro, y sumar recorridos (n + n) no cambia la clase: las constantes se eliminan.
+- La búsqueda de un dato ya visto, que en la fuerza bruta exigía recorrer de nuevo los datos (el complemento, el conteo de un cliente), se resuelve con una consulta directa al `Map`.
+- Las operaciones de `Map` son O(1) en promedio, no en el peor caso (por colisiones de la tabla hash). Con las cantidades de este proyecto el promedio es lo que importa.
+
+**Comparación con la solución directa:**
+
+| Función | Solución directa | Con `Map` | Qué se paga |
+|---|---|---|---|
+| `comboRegalo` | O(n²) tiempo, O(1) espacio (`comboRegaloFuerzaBruta`) | O(n) tiempo, O(n) espacio | Memoria para el `Map` |
+| `primerClienteUnico` | O(n²): contar las apariciones de cada cliente recorriendo todas las ventas (no implementada) | O(n) tiempo, O(c) espacio | Memoria para el `Map` |
+
+**Evidencia:** la traza de `comboRegalo` con 87.000 muestra que recorre el catálogo una sola vez y se detiene en el tercer producto (8 pares en la fuerza bruta frente a 3 productos). Sin solución recorre los 8 productos, frente a los 28 pares de la fuerza bruta. En `primerClienteUnico`, la traza del Día 1 llega a C04 en la quinta venta, tras un primer recorrido completo.

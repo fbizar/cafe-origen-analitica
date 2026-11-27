@@ -188,6 +188,82 @@ function totalCiudadUnaPasada(ventas, ciudad){
     return total;
 }
 
+// Combo regalo y frecuencias
+function comboRegaloFuerzaBruta(catalogo, valor) {
+    if (!Array.isArray(catalogo)) return null;
+
+    for (let i = 0; i < catalogo.length; i++) {
+        for (let j = i + 1; j < catalogo.length; j++) {
+            if (catalogo[i].precio + catalogo[j].precio === valor) {
+                return [catalogo[i], catalogo[j]];
+            }
+        }
+    }
+    return null;
+}
+
+function comboRegalo(catalogo, valor) {
+    if (!Array.isArray(catalogo)) return null;
+
+    const vistos = new Map();
+    for (const p of catalogo) {
+        const falta = valor - p.precio;
+        if (vistos.has(falta)) return [vistos.get(falta), p];
+        vistos.set(p.precio, p);
+    }
+    return null;
+}
+
+function productoEstrellaPorCiudad(ventas) {
+    if (!Array.isArray(ventas)) return {};
+
+    //  Map por ciudad que cuenta las apariciones de cada producto
+    const frecuencias = new Map();
+    for (const venta of ventas) {
+        if (venta.cantidad <= 0) continue;
+
+        const ciudad = normalizar(venta.ciudad);
+        if (!frecuencias.has(ciudad)) frecuencias.set(ciudad, new Map());
+
+        const productos = frecuencias.get(ciudad);
+        productos.set(venta.producto, (productos.get(venta.producto) || 0) + 1);
+    }
+
+    // Frecuente en cada ciudad
+    const estrellas = {};
+    for (const [ciudad, productos] of frecuencias) {
+        let mejor = null;
+        let veces = 0;
+        for (const [producto, cantidad] of productos) {
+            if (cantidad > veces) {
+                mejor = producto;
+                veces = cantidad;
+            }
+        }
+        estrellas[ciudad] = { producto: mejor, veces };
+    }
+    return estrellas;
+}
+
+function primerClienteUnico(ventas) {
+    if (!Array.isArray(ventas)) return null;
+
+    // Recorrido 1: contar las compras de cada cliente
+    const conteo = new Map();
+    for (const venta of ventas) {
+        if (venta.cantidad <= 0) continue;
+
+        conteo.set(venta.cliente, (conteo.get(venta.cliente) || 0) + 1);
+    }
+
+    // Recorrido 2: el primero, en el orden de las ventas, con una sola compra
+    for (const venta of ventas) {
+        if (venta.cantidad <= 0) continue;
+
+        if (conteo.get(venta.cliente) === 1) return venta.cliente;
+    }
+    return null;
+}
 
 module.exports = {
     primeraVenta,
@@ -207,7 +283,11 @@ module.exports = {
     ventasDelDia,
     clientesRecurrentes,
     totalCiudadCadena,
-    totalCiudadUnaPasada
+    totalCiudadUnaPasada,
+    comboRegaloFuerzaBruta,
+    comboRegalo,
+    productoEstrellaPorCiudad,
+    primerClienteUnico
 };
 
 // console.table(totalPorCiudad([]));
